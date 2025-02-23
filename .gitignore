@@ -1,0 +1,9 @@
+*.csv
+chromadb/chroma.sqlite3
+chromadb/2fc40d3e-05aa-44db-b2eb-7236875470fe/data_level0.bin
+chromadb/2fc40d3e-05aa-44db-b2eb-7236875470fe/header.bin
+chromadb/2fc40d3e-05aa-44db-b2eb-7236875470fe/length.bin
+chromadb/2fc40d3e-05aa-44db-b2eb-7236875470fe/link_lists.bin
+articles_chunks.json
+test_notebook.ipynb
+chromadb/2fc40d3e-05aa-44db-b2eb-7236875470fe/index_metadata.pickle

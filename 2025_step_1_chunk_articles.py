@@ -2,6 +2,7 @@ import pandas as pd
 import re
 from typing import Dict
 from dataclasses import dataclass
+import json
 
 
 '''
@@ -54,7 +55,7 @@ def create_paragraphs(df):
     # Create a new column 'paragraphs' to store the cleaned text
     df['paragraphs'] = None
 
-    for x, row in df.iterrows():
+    for x, row in df['body'].items():
         text = row['body'] if isinstance(row['body'], str) else ''
         text = re.sub(r'\n+', '\n', text)
         paragraphs = [re.sub(r'\s+', ' ', p.strip()) for p in text.split('\n')] 
@@ -75,10 +76,9 @@ def create_string(df):
     """
     df['clean_string'] = None
 
-    # Pandas iterows returns Series for each rows. Docs say thay you should never modify the original data you iterate over because it
-    # does not preserve data type. Does creating new column consider as modification?
-    for x, row in df.iterrows():
-        text = row['body'] if isinstance(row['body'],str) else ''
+    # Replaced iterrows with items()
+    for x, row in df['body'].items():
+        text = row if isinstance(row,str) else ''
         # RE to remove multiple new lines
         text = re.sub(r'\n+', '\n', text)
         # RE to remove multiple spaces and strip the text from the beginning and the end of paragraph 
@@ -115,8 +115,8 @@ def extract_sentences(df):
     
     
     # Split text into sentences while preserving paragraph breaks.
-    for x, row in df.iterrows():
-        text = row['clean_string'] if isinstance(row['clean_string'], str) else ''
+    for x, row in df['clean_string'].items():
+        text = row if isinstance(row, str) else ''
         
         # Split the string into paragraph
         paragraphs = text.split('\n')
@@ -124,15 +124,18 @@ def extract_sentences(df):
         # Empty list to save sentences
         sentences = []
         
+        
         for paragraph in paragraphs:
         
             # Split paragraph into sentences using Regex
             # (?<=[.!?]) lookbehind ensures the split happens after a ., !, or ?.
-            # \s+ → Matches one or more spaces (actual split point).
+            # \s+ -> matches one or more spaces (actual split point).
             # (?=[A-Z]) lookahead ensures the next character is an uppercase letter (likely the start of a new sentence).
             paragraph_sentences = re.split(r'(?<=[.!?])\s+(?=[A-Z])', paragraph.strip())
         
             # Add paragraph break marker
+            # This condition ensures that the block of code inside the if statement only executes 
+            # if paragraph_sentences is not empty.
             if paragraph_sentences:
                 # https://docs.python.org/3/tutorial/datastructures.html
                 # Extend the list by appending all the items from the iterable.
@@ -174,18 +177,21 @@ def create_chunk(df):
     df['chunks'] = [[] for _ in range(len(df))]
 
     for i, sentence_list in df['sentences'].items():
-        # Prepare to accumulate chunks for this row
+        # Prepare to accumulate all chunks from this row
         chunks = []
         current_chunk = []
         current_size = 0
 
         # Extract metadata for this article (pmcid, title, etc.)
+        # Do I need to include abstract and keywords?
         metadata = df.loc[i, ['pmcid', 'title', 'keywords', 'abstract']].to_dict()
 
         # Process each sentence in the row
         for sentence in sentence_list:
             # Handle paragraph breaks separately
             if sentence == "[PARA_BREAK]":
+                # Ensures that a chunk exists before adding paragraph spacing.
+                # Prevents unnecessary newlines at the start if current_chunk is empty.
                 if current_chunk:
                     current_chunk.append("\n\n")  # Preserve paragraph spacing
                     current_size += 2
@@ -241,7 +247,16 @@ create_chunk(df)
 df.to_csv("articles_paragraphs.csv", index=False)
 
 
+'''
+Saving alternative version of dataset into json file
+'''
 
+def chunk_to_dict(chunk):
+    return {
+        "text": chunk.text,
+        "metadata": chunk.metadata
+    }
 
+df['chunks'] = df['chunks'].apply(lambda chunk_list: [chunk_to_dict(c) for c in chunk_list])
 
-
+df.to_json("articles_chunks.json", orient="records")
