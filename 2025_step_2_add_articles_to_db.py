@@ -90,7 +90,14 @@ def process_file(data):
 process_file(data)
     
 
+'''
+Duplicate problem:
+In my setup I use a regular DB. I check that the file is not present in the DB 
+before indexing to chromadb. It never fails. But I see chromadb also 
+supports upsert which I will look into when I have a need to update chunks 
+in a vector space.
 
+'''
 
 
 
