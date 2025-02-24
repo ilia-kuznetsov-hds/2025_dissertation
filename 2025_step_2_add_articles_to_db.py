@@ -44,6 +44,8 @@ collection = client.get_or_create_collection(name="articles")
 About embedding model:
 https://www.mixedbread.com/blog/mxbai-embed-large-v1
 
+https://huggingface.co/mixedbread-ai/mxbai-embed-large-v1
+
 Reference from ollama:
 https://ollama.com/blog/embedding-models
 
@@ -52,7 +54,7 @@ https://ollama.com/blog/embedding-models
 
 
 def create_emdeddings(data):
-   response = ollama.embeddings(model="mxbai-embed-large", prompt=data)
+   response = ollama.embeded(model="mxbai-embed-large", prompt=data)
    return response["embedding"]
 
 
