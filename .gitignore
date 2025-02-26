@@ -7,3 +7,6 @@ chromadb/2fc40d3e-05aa-44db-b2eb-7236875470fe/link_lists.bin
 articles_chunks.json
 test_notebook.ipynb
 chromadb/2fc40d3e-05aa-44db-b2eb-7236875470fe/index_metadata.pickle
+.venv/pyvenv.cfg
+.venv/Scripts/python.exe
+.venv/Scripts/pythonw.exe
