@@ -52,6 +52,7 @@ https://ollama.com/blog/embedding-models
 
 
 def create_emdeddings(data):
+   # change to embed method
    response = ollama.embeddings(model="mxbai-embed-large", prompt=data)
    return response["embedding"]
 
