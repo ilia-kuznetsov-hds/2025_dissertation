@@ -18,3 +18,7 @@ chromadb/42f4bc0e-794c-4061-8d68-cd6eda8f9c0b/header.bin
 chromadb/42f4bc0e-794c-4061-8d68-cd6eda8f9c0b/length.bin
 chromadb/42f4bc0e-794c-4061-8d68-cd6eda8f9c0b/link_lists.bin
 2025_script_1_step_2_call_together_ai_llm.py
+data/MedQA_no-opt_dataset_with_reasoning.xlsx
+data/reviewed_questions/ptsd_filtered_questions_with_ids.xlsx
+data/reviewed_questions/ptsd_review_results.txt
+data/reviewed_questions/ptsd_reviewed_questions.xlsx
