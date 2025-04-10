@@ -22,3 +22,5 @@ data/MedQA_no-opt_dataset_with_reasoning.xlsx
 data/reviewed_questions/ptsd_filtered_questions_with_ids.xlsx
 data/reviewed_questions/ptsd_review_results.txt
 data/reviewed_questions/ptsd_reviewed_questions.xlsx
+data/reviewed_questions/ptsd_reviewed_questions test.xlsx
+chromadb/42f4bc0e-794c-4061-8d68-cd6eda8f9c0b/index_metadata.pickle
