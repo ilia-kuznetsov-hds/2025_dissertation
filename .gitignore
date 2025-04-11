@@ -24,3 +24,4 @@ data/reviewed_questions/ptsd_review_results.txt
 data/reviewed_questions/ptsd_reviewed_questions.xlsx
 data/reviewed_questions/ptsd_reviewed_questions test.xlsx
 chromadb/42f4bc0e-794c-4061-8d68-cd6eda8f9c0b/index_metadata.pickle
+data/reviewed_questions/ptsd_reviewed_questions test_with_answers.xlsx

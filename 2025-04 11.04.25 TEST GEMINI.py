@@ -1,14 +1,16 @@
-import gradio as gr
 import os
+import gradio as gr
 import chromadb
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from llama_index.core import VectorStoreIndex
 from llama_index.llms.together import TogetherLLM
+from llama_index.llms.google_genai import GoogleGenAI
 from llama_index.core.llms import ChatMessage
 import pandas as pd
 
 
 together_api_key = os.getenv("TOGETHER_API_KEY")
+google_api_key = os.getenv("GOOGLE_API_KEY")
 
 DATABASE_PATH = r"C:\\Users\\kuzne\\Documents\\Python_repo\\2025_01_dissertation\\2025_dissertation\\chromadb"
 
@@ -35,14 +37,16 @@ df = pd.read_excel(QUESTIONS_FILE_PATH)
 
 user_query = 'How do we treat bipolar disorder in adults?'
 
-def generate_rag_response(user_query, vector_store):
+
+
+def generate_rag_response(user_query, model_name="deepseek"):
     """
     Generate a response using RAG-enhanced LLM
     
     """
+    global index
     user_query = user_query
-    vector_store = vector_store
-    query_engine = vector_store.as_query_engine(
+    query_engine = index.as_query_engine(
         similarity_top_k=3)
     response = query_engine.query(user_query)
     source_texts = []
@@ -61,29 +65,30 @@ def generate_rag_response(user_query, vector_store):
 
         Your response should be comprehensive, accurate, and based on the context provided."""
     
-    llm = TogetherLLM(
-        model="deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free",
-        api_base="https://api.together.xyz/v1",
-        api_key=together_api_key,
-        is_chat_model=True,
-        is_function_calling_model=True,
-        temperature=0.1
-    )
-    
-    print("\nAnswer: ", end="", flush=True)
+    if model_name.lower() == "deepseek":
+        llm = TogetherLLM(
+            model="deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free",
+            api_base="https://api.together.xyz/v1",
+            api_key=together_api_key,
+            is_chat_model=True,
+            is_function_calling_model=True,
+            temperature=0.1
+        )
 
-    messages=[
-    ChatMessage(role = "user", 
-                content = prompt)]
-    
+        messages=[ChatMessage(role = "user", content = prompt)]
+        # Use non-streaming version to capture the full response
+        full_response = llm.chat(messages)
+        answer_text = full_response.message.content
 
-    # https://docs.llamaindex.ai/en/stable/examples/llm/together/
-    # pip install llama-index-llms-together
-    
-    # Use non-streaming version to capture the full response
-    full_response = llm.chat(messages)
-    answer_text = full_response.message.content
-    print(answer_text)  # Print the answer
+    else:
+        llm = GoogleGenAI(
+            model="gemini-2.0-flash",
+            api_key=google_api_key  
+        )
+        full_response = llm.complete(prompt)
+        answer_text = full_response.text
+
+
     return answer_text  # Return the answer
 
 
@@ -114,18 +119,17 @@ def generate_vanilla_response(user_query):
     return full_response.message.content
 
 
-def compare_responses(question):
-    global index
+def compare_responses(question, model_option="deepseek"):
 
     # Prevent to send empty query to LLM
     if not question.strip():
         return "Please enter a question.", "Please enter a question."
 
-    rag_response = generate_rag_response(question, vector_store=index)
+    rag_response = generate_rag_response(question, model_name=model_option)
 
     vanilla_response = generate_vanilla_response(question)
 
-    return vanilla_response, rag_response
+    return rag_response, vanilla_response
 
 
 
@@ -199,6 +203,11 @@ def create_gradio_interface():
             )
 
         with gr.Row():
+            model_dropdown = gr.Dropdown(
+                choices=["deepseek", "gemini"], 
+                label="Select RAG Model", 
+                value="deepseek"
+            )
             submit_btn = gr.Button("Submit", variant="primary")
 
         with gr.Row():
@@ -214,7 +223,7 @@ def create_gradio_interface():
         # Connect the components
         submit_btn.click(
             fn=compare_responses,
-            inputs=question_input,
+            inputs=[question_input, model_dropdown],
             outputs=[rag_response, vanilla_response]
             )
     
@@ -224,3 +233,11 @@ def create_gradio_interface():
 
 demo = create_gradio_interface()
 demo.launch(share=False)  # Set share=True if you want to create a public link
+
+
+
+
+
+
+
+
