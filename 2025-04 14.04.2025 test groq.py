@@ -10,15 +10,14 @@ from llama_index.core.llms import ChatMessage
 import pandas as pd
 
 
-
+# Providers API Keys
 together_api_key = os.getenv("TOGETHER_API_KEY")
 google_api_key = os.getenv("GOOGLE_API_KEY")
 groq_api_key = os.getenv("GROQ_API_KEY")
 
+# Path to ChromaDB persistent client
 DATABASE_PATH = r"C:\\Users\\kuzne\\Documents\\Python_repo\\2025_01_dissertation\\2025_dissertation\\chromadb"
 
-QUESTIONS_FILE_PATH = r"C:\\Users\\kuzne\\Documents\\Python_repo\\2025_01_dissertation\\2025_dissertation\\data\\reviewed_questions\\ptsd_reviewed_questions test.xlsx"
-OUTPUT_FILE_PATH = r"C:\\Users\\kuzne\\Documents\\Python_repo\\2025_01_dissertation\\2025_dissertation\\data\\reviewed_questions\\ptsd_reviewed_questions test_with_answers.xlsx"
 
 '''
 Part 1. Connect to external vector store (with existing embeddings)
@@ -26,21 +25,29 @@ https://docs.llamaindex.ai/en/stable/module_guides/indexing/vector_store_guide/
 
 This is the way to access previously calculated embeddings stored in the index
 
+https://docs.llamaindex.ai/en/stable/examples/vector_stores/ChromaIndexDemo/
+#Basic example including saving to the disc
+
 '''
 
-# https://docs.llamaindex.ai/en/stable/examples/vector_stores/ChromaIndexDemo/
-# Basic example including saing to the disc
 client = chromadb.PersistentClient(path=DATABASE_PATH)
 collection = client.get_or_create_collection(name="articles")
 vector_store = ChromaVectorStore(chroma_collection=collection)
 index = VectorStoreIndex.from_vector_store(vector_store=vector_store)
 
 
+QUESTIONS_FILE_PATH = r"C:\\Users\\kuzne\\Documents\\Python_repo\\2025_01_dissertation\\2025_dissertation\\data\\reviewed_questions\\ptsd_reviewed_questions test.xlsx"
+OUTPUT_FILE_PATH = r"C:\\Users\\kuzne\\Documents\\Python_repo\\2025_01_dissertation\\2025_dissertation\\data\\reviewed_questions\\ptsd_reviewed_questions test_with_answers.xlsx"
+
 df = pd.read_excel(QUESTIONS_FILE_PATH)
+
+
 user_query = 'How do we treat bipolar disorder in adults?'
 
 
-def generate_rag_response(user_query, provider_name="deepseek"):
+def generate_rag_response(user_query, 
+                          provider_name="deepseek", 
+                          model_name="DeepSeek-R1-Distill-Llama-70B-free"):
     """
     Generate a response using RAG-enhanced LLM
     
@@ -67,7 +74,7 @@ def generate_rag_response(user_query, provider_name="deepseek"):
     
     if provider_name.lower() == "deepseek":
         llm = TogetherLLM(
-            model="deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free",
+            model=model_name,
             api_base="https://api.together.xyz/v1",
             api_key=together_api_key,
             is_chat_model=True,
@@ -81,13 +88,14 @@ def generate_rag_response(user_query, provider_name="deepseek"):
         answer_text = full_response.message.content
 
     elif provider_name.lower() == "groq":
-        llm = Groq(model="llama-3.2-1b-preview", api_key=groq_api_key)
+        llm = Groq(model=model_name, 
+                   api_key=groq_api_key)
         full_response = llm.complete(prompt)
         answer_text = full_response
 
     else:
         llm = GoogleGenAI(
-            model="gemini-2.0-flash",
+            model=model_name,
             api_key=google_api_key  
         )
         full_response = llm.complete(prompt)
@@ -96,7 +104,9 @@ def generate_rag_response(user_query, provider_name="deepseek"):
     return answer_text  
 
 
-def generate_vanilla_response(user_query, provider_name="deepseek"):
+def generate_vanilla_response(user_query, 
+                              provider_name="deepseek", 
+                              model_name="DeepSeek-R1-Distill-Llama-70B-free"):
     
     user_query = user_query
     prompt = f"""You are an expert assistant. Answer the user question based on your knowledge.
@@ -107,7 +117,8 @@ def generate_vanilla_response(user_query, provider_name="deepseek"):
         Your response should be comprehensive and accurate."""
 
     if provider_name.lower() == "deepseek":
-        llm = TogetherLLM(model="deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free",
+        llm = TogetherLLM(
+            model=model_name,
             api_base="https://api.together.xyz/v1",
             api_key=together_api_key,
             is_chat_model=True,
@@ -121,13 +132,14 @@ def generate_vanilla_response(user_query, provider_name="deepseek"):
         answer_text = full_response.message.content
 
     elif provider_name.lower() == "groq":
-        llm = Groq(model="llama-3.2-1b-preview", api_key=groq_api_key)
+        llm = Groq(model=model_name, 
+                   api_key=groq_api_key)
         full_response = llm.complete(prompt)
         answer_text = full_response
 
     else:
         llm = GoogleGenAI(
-            model="gemini-2.0-flash",
+            model=model_name,
             api_key=google_api_key  
         )
         full_response = llm.complete(prompt)
@@ -136,13 +148,13 @@ def generate_vanilla_response(user_query, provider_name="deepseek"):
     return answer_text
 
 
-def compare_responses(question, provider_dropdown="deepseek"):
+def compare_responses(question, provider, model):
     # Prevent to send empty query to LLM
     if not question.strip():
         return "Please enter a question.", "Please enter a question."
 
-    rag_response = generate_rag_response(question, provider_name=provider_dropdown)
-    vanilla_response = generate_vanilla_response(question, provider_name=provider_dropdown)
+    rag_response = generate_rag_response(question, provider_name=provider, model_name=model)
+    vanilla_response = generate_vanilla_response(question, provider_name=provider, model_name=model)
     return rag_response, vanilla_response
 
 #generate_response_from_llm(user_query, index) 
@@ -182,8 +194,19 @@ def process_questions_from_csv(file_path, row_index, vector_store, output_file=N
     return df
 
 
+# Define available models for each provider
+provider_models = {
+    "deepseek": ["DeepSeek-R1-Distill-Llama-70B-free"],
+    "groq": ["llama-3.2-1b-preview", 
+             "llama-3.1-8b-instant",
+             "gemma2-9b-it",
+             "allam-2-7b"],
+    "gemini": ["gemini-2.0-flash"]
+}
 
-
+def update_model_choices(provider):
+    """Return the list of models available for the selected provider"""
+    return gr.Dropdown(choices=provider_models.get(provider, []))
 
 
 '''
@@ -194,7 +217,8 @@ process_questions_from_csv(file_path=QUESTIONS_FILE_PATH,
 '''
 
 def create_gradio_interface():
-    """Create and launch the Gradio interface.
+    """
+    Create and launch the Gradio interface.
     
     """
 
@@ -212,11 +236,23 @@ def create_gradio_interface():
             )
 
         with gr.Row():
-            provider_dropdown = gr.Dropdown(
-                choices=["deepseek", "groq", "gemini"], 
-                label="Select RAG Model", 
-                value="deepseek"
-            )
+            with gr.Column():
+                provider_dropdown = gr.Dropdown(
+                    choices=list(provider_models.keys()), 
+                    label="Select Provider", 
+                    value="deepseek"
+                )
+
+            with gr.Column():
+                # Initialize with the first provider's models
+                model_dropdown = gr.Dropdown(
+                    choices=provider_models["deepseek"],
+                    label="Select Model",
+                    value=provider_models["deepseek"][0]
+                )
+            
+
+
         with gr.Row():
             submit_btn = gr.Button("Submit", variant="primary")
 
@@ -229,11 +265,27 @@ def create_gradio_interface():
                 gr.Markdown("### Vanilla LLM Response")
                 vanilla_response = gr.Textbox(lines=40, label="Vanilla LLM Response")
 
+
+        # This function updates the model dropdown choices AND its value
+        def update_model_dropdown(provider):
+            models = provider_models.get(provider, [])
+            return gr.Dropdown(
+                choices=models,
+                value=models[0] if models else None
+            )
+
+        # Connect the components for model selection - this happens automatically
+        provider_dropdown.change(
+            fn=update_model_dropdown,
+            inputs=provider_dropdown,
+            outputs=model_dropdown
+        )
+
     
         # Connect the components
         submit_btn.click(
             fn=compare_responses,
-            inputs=[question_input, provider_dropdown],
+            inputs=[question_input, provider_dropdown, model_dropdown],
             outputs=[rag_response, vanilla_response]
             )
     
@@ -243,11 +295,3 @@ def create_gradio_interface():
 
 demo = create_gradio_interface()
 demo.launch(share=False)
-
-
-
-
-
-
-
-
