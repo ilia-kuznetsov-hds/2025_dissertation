@@ -4,7 +4,7 @@ client = Together()
 
 stream = client.chat.completions.create(
   model="deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free",
-  messages=[{"role": "user", "content": "What are the top 3 things to do in New York?"}],
+  messages=[{"role": "user", "content": "How do we screen bipolar disorder in adults?"}],
   stream=True,
 )
 

@@ -27,7 +27,8 @@ from llama_index.core.llms import ChatMessage
 
 my_api_key = os.getenv("TOGETHER_API_KEY")
 # FILE_PATH = r"C:\\Users\\User\\Desktop\\test_path\\2025 Journal article Toward expert-level medical question answering with LLMs.pdf"
-FILE_PATH = r"C:\\Users\\kuzne\\Desktop\\rag_articles_pdf\\2025 Almanac - Retrieval Augmented Language models for clinical medicine.pdf"
+#FILE_PATH = r"C:\\Users\\kuzne\\Desktop\\rag_articles_pdf\\2025 Almanac - Retrieval Augmented Language models for clinical medicine.pdf"
+FILE_PATH = r"C:\\Users\\kuzne\\Desktop\\03 University\\Dissertation\\06 Medical Text Corpus\\BMJ\\Bipolar disorder in adults.pdf"
 
 DATABASE_PATH = r"C:\\Users\\kuzne\\Documents\\Python_repo\\2025_01_dissertation\\2025_dissertation\\chromadb"
 
@@ -142,14 +143,14 @@ RAG Query with Together API Integration
 
 '''
 
-user_query = 'I want to know about LLM evaluation'
+user_query = 'How do we screen bipolar disorder in adults?'
 
 def generate_response_from_llm(user_query, vector_store):
     user_query = user_query
     vector_store = vector_store
 
     query_engine = vector_store.as_query_engine(
-        similarity_top_k=3)
+        similarity_top_k=5)
     response = query_engine.query(user_query)
 
     source_texts = []
