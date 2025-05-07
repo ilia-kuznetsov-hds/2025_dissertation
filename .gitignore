@@ -22,3 +22,10 @@ chromadb/3ec1dd45-110e-41ef-b729-050fade1d198/data_level0.bin
 chromadb/3ec1dd45-110e-41ef-b729-050fade1d198/header.bin
 chromadb/3ec1dd45-110e-41ef-b729-050fade1d198/length.bin
 chromadb/3ec1dd45-110e-41ef-b729-050fade1d198/link_lists.bin
+chromadb/42f4bc0e-794c-4061-8d68-cd6eda8f9c0b/index_metadata.pickle
+data/MedQA_no-opt_dataset_with_reasoning.xlsx
+data/reviewed_questions/ptsd_filtered_questions_with_ids.xlsx
+data/reviewed_questions/ptsd_review_results.txt
+data/reviewed_questions/ptsd_reviewed_questions test_with_answers gemini.xlsx
+data/reviewed_questions/ptsd_reviewed_questions test.xlsx
+data/reviewed_questions/ptsd_reviewed_questions.xlsx
