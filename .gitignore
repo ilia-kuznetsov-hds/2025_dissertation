@@ -29,3 +29,5 @@ data/reviewed_questions/ptsd_review_results.txt
 data/reviewed_questions/ptsd_reviewed_questions test_with_answers gemini.xlsx
 data/reviewed_questions/ptsd_reviewed_questions test.xlsx
 data/reviewed_questions/ptsd_reviewed_questions.xlsx
+data/2025-05 08.05.25 dataset for classification/MedQA_open_dataset_classified.xlsx
+data/2025-05 08.05.25 dataset for classification/MedQA_open_dataset.xlsx
