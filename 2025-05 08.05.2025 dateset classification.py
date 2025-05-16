@@ -9,17 +9,14 @@ client = genai.Client(api_key=google_api_key)
 dataset_path = "C:\\Users\\kuzne\\Documents\\Python_repo\\2025_01_dissertation\\2025_dissertation\data\\2025-05 08.05.25 dataset for classification\\MedQA_open_dataset.xlsx"
 
 
-# Load the dataset
-#data = pd.read_excel(FILE_PATH)
 
 def classify_question(question, answer):
     """
-    Classify a question as psychiatry-related or not using LLM.
+    Classify a question as psychiatry-related or not psychiatry related using LLM.
     """
     prompt = f"""
     Question: {question}
     Answer: {answer}
-    
     Is this question related to psychiatry? Respond with only 'psychiatry' or 'non-psychiatry'.
     """
     
@@ -42,7 +39,8 @@ def process_file(file_path, batch_size=10, max_rows=150, timeout_interval=25, ti
     FILE_PATH = file_path
     BATCH_SIZE = batch_size
     OUTPUT_PATH = FILE_PATH.replace(".xlsx", "_classified.xlsx")
-     
+
+    # Check if the output file already exists 
     if os.path.exists(OUTPUT_PATH):
         print(f"Resuming from existing file: {OUTPUT_PATH}")
         df = pd.read_excel(OUTPUT_PATH)
@@ -105,11 +103,15 @@ def process_file(file_path, batch_size=10, max_rows=150, timeout_interval=25, ti
         print(f"All questions have been classified! Total: {len(df)} questions.")
                 
       
+'''
+Iteratively run the function until all questions are classified.
+Daily limit is 1500 API calls.
 
+'''
 process_file(
     dataset_path, 
-    batch_size=30,      # Save every 10 questions
-    max_rows=200,       # Process max 150 rows per run
-    timeout_interval=1,# Take a break every 15 questions
-    timeout_seconds=5  # Break for 30 seconds
+    batch_size=30,      # Save every 30 questions
+    max_rows=900,       # Process rows per run
+    timeout_interval=1, # Take a break after every 1 question (so we don't ecxeed RPM limit)
+    timeout_seconds=10   # Break for 5 seconds is enough to avoid rate limits
 )

@@ -31,3 +31,10 @@ data/reviewed_questions/ptsd_reviewed_questions test.xlsx
 data/reviewed_questions/ptsd_reviewed_questions.xlsx
 data/2025-05 08.05.25 dataset for classification/MedQA_open_dataset_classified.xlsx
 data/2025-05 08.05.25 dataset for classification/MedQA_open_dataset.xlsx
+chromadb_huggingfaceembed/chroma.sqlite3
+chromadb_huggingfaceembed/2ef81f80-777a-4505-bb80-1e974c46a72b/data_level0.bin
+chromadb_huggingfaceembed/2ef81f80-777a-4505-bb80-1e974c46a72b/header.bin
+chromadb_huggingfaceembed/2ef81f80-777a-4505-bb80-1e974c46a72b/length.bin
+chromadb_huggingfaceembed/2ef81f80-777a-4505-bb80-1e974c46a72b/link_lists.bin
+.gitignore
+data/2025-05 08.05.25 dataset for classification/MedQA_open_dataset_classified_categories.xlsx
