@@ -111,7 +111,7 @@ Daily limit is 1500 API calls.
 process_file(
     dataset_path, 
     batch_size=10,      # Save every 30 questions
-    max_rows=30,       # Process rows per run
+    max_rows=1200,       # Process rows per run
     timeout_interval=1, # Take a break after every 1 question (so we don't ecxeed RPM limit)
-    timeout_seconds=10   # Break for 5 seconds is enough to avoid rate limits
+    timeout_seconds=8   # Break for 5 seconds is enough to avoid rate limits
 )
