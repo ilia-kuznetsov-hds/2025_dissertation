@@ -325,7 +325,7 @@ def calculate_answer_correctness_rag(file_path, model_name="gemini-2.0-flash", m
             # The way to handle error when the context limit is exceeded
             if total_tokens > model_context_limit:
                 print(f"Row {idx} exceeds context limit. Skipping evaluation.")
-                df.loc[idx, 'Answer Correctness for RAG'] = None
+                df.loc[idx, 'Answer Correctness for RAG run 1'] = None
                 df.loc[idx, 'Evaluation Notes Answer Correctness for RAG'] = f"Exceeded context limit"
                 skipped_rows += 1
                 continue
@@ -415,41 +415,6 @@ calculate_answer_correctness_rag(QUESTIONS_FILE,
                                      max_rows=2, 
                                      batch_size=1, 
                                      timeout_seconds=5)  # Evaluate one question takes around 10 seconds, so we can use a small timeout
-
-
-
-
-
-
-
-
-
-
-
-
-def run_evaluation(file_path, model_name="gemini-2.0-flash"):
-
-    '''
-    The function take a CSV file path and a model name as input,
-    and runs evaluation of the dataset using RAGAS.
-
-    It checks the model context limit based on the provided model name,
-    and calculates the effective context limit.
-
-
-    For each row in dataset, it runs evaluation of the metric 3 times and saves the mean result into the dataset. 
-    The total LLM calls are metrics amount * 3 for each row that needs evaluation.
-
-    '''
-
-    pass
-
-
-
-
-
-
-
 
 
 
