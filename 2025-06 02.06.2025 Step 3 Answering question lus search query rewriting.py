@@ -38,14 +38,22 @@ https://docs.llamaindex.ai/en/stable/module_guides/indexing/vector_store_guide/
 
 This is the way to access previously calculated embeddings stored in the index
 https://docs.llamaindex.ai/en/stable/examples/vector_stores/ChromaIndexDemo/
-#Basic example including saving to the disc
+Basic example including saving to the disc
 '''
 
 def initialize_vector_store(database_path):
     """
     Initialize the vector store that contains precalculated emdeddings from medical text corpus.
-    Returns: the vector store, storage context, index
-    Collection name: "articles" - naive RAG, ingestion pipeline without preprocessing of PDF files.
+    Embeddings were calculated during Step 1 (reference to Script 1 on RAG pipeline). 
+
+    Parameters:
+    - database_path: Path to the directory where the ChromaDB persistent client is stored.
+
+    Collection name references: 
+        - "articles" - naive RAG, ingestion pipeline without preprocessing of PDF files.
+
+    Returns: 
+        - the vector store, storage context, index
     """
     client = chromadb.PersistentClient(path=database_path)
     collection = client.get_or_create_collection(name="articles")
@@ -66,15 +74,14 @@ def generate_rag_response(user_query,
     Step 1: Query rewriting into effective search queries using LLM.
     https://arxiv.org/abs/2305.14283
 
-
-
     Returns:
     - answer_text: The generated answer text from LLM provided with context
     - context: The context retrieved from the vector store and used to generate the answer
     """
     global index
 
-    # Step 1: Query rewriting using the same LLM
+    # Step 1: Query rewriting using the LLM 
+    # I use Google Gemini for rewriting queries because it has the biggest free tier limits
     rewrite_prompt = f"""
     You are a search expert. Your task is to rewrite the following medical question into concise and effective search query
     that focus on the key medical concepts from the question.
@@ -85,10 +92,10 @@ def generate_rag_response(user_query,
     Format your response as one search query without any explanations or numbering.
     """
     rewriter_llm = GoogleGenAI(
-            model='gemini-2.0-flash-lite',  # Using Gemini for rewriting
+            model='gemini-2.0-flash-lite',  # Alternative model - gemini-2.0-flash
             api_key=google_api_key)
     rewrite_response = rewriter_llm.complete(rewrite_prompt)
-    rewritten_queries = rewrite_response.text.strip().split('\n')
+    rewritten_queries = rewrite_response.text.strip().split('\n') # If we change prompt to return multiple queries, we can split them by new line
 
     # Filter out empty queries and strip whitespace
     rewritten_queries = [q.strip() for q in rewritten_queries if q.strip()]
@@ -97,7 +104,7 @@ def generate_rag_response(user_query,
     print(f"Rewritten queries: {rewritten_queries}")
 
     # Step 2: Retrieve contexts using all queries
-    query_engine = index.as_query_engine(similarity_top_k=1)  # Reduced top_k since we'll get multiple queries
+    query_engine = index.as_query_engine(similarity_top_k=1)  # Reduced top_k since 1) we'll get multiple queries; 2) some models have small context window;
     source_texts = []
     used_source_ids = set()  # To track unique sources and avoid duplication
     
@@ -113,12 +120,14 @@ def generate_rag_response(user_query,
     context = "\n\n".join(source_texts)
     
     prompt = f"""
-        You are an expert mental health assistant. 
-        Use the following context to answer the user question. If the context doesn't 
-        contain relevant information, state that you don't have enough information and generate a response based on your knowledge.
+        You are a clinically informed mental health decision support system.
+            • Provide accurate, evidence-based information relevant to the user’s question.
+            • Use the provided context to generate your response.
+            • If the available information is insufficient to generate a reliable answer, clearly state that and avoid unsupported assumptions.
+            • Ensure your response is precise, comprehensive, and aligned with current best practices in mental health care.
+
         CONTEXT: {context}
         USER QUESTION: {user_query}
-        Your response should be comprehensive, accurate, and based on the context provided.
         """
     
     if provider_name.lower() == "together":
@@ -164,10 +173,12 @@ def generate_vanilla_response(user_query,
     
     user_query = user_query
     prompt = f"""
-        You are an expert assistant. Answer the user question based on your knowledge.
-        If you don't have enough information, state that you don't have enough information.
+        You are a clinically informed mental health decision support system.
+            • Provide accurate, evidence-based information relevant to the user’s question.
+            • If the available information is insufficient to generate a reliable answer, clearly state that and avoid unsupported assumptions.
+            • Ensure your response is precise, comprehensive, and aligned with current best practices in mental health care.
+
         USER QUESTION: {user_query}
-        Your response should be comprehensive and accurate.
         """
 
     if provider_name.lower() == "together":
@@ -233,7 +244,6 @@ def process_questions_from_csv(file_path,
     - The function updates and saves CSV file after processing each batch of questions.
     
     """
-
     FILE_PATH = file_path
     BATCH_SIZE = batch_size
     PROVIDER = provider_name
@@ -257,12 +267,8 @@ def process_questions_from_csv(file_path,
         df['Model'] = MODEL
         df['Provider'] = PROVIDER
         df['Generated Vanilla Answer'] = None
-        df['Semanthic Similarity for vanilla'] = None
-        df['Answer Correctness for vanilla'] = None
         df['Generated RAG Answer'] = None
         df['Retrieved Context'] = None
-        df['Semanthic Similarity for RAG'] = None
-        df['Answer Correctness for RAG'] = None
 
     # Get rows of unanswered questions
     # The dataframe is updated in a way that if vanilla answer is missing, it means that RAG response is also missing.
@@ -328,7 +334,7 @@ def process_questions_from_csv(file_path,
 
 
 '''
-Main function
+Main function run
 '''
 
 # Initialize the vector store
@@ -344,6 +350,7 @@ process_questions_from_csv(QUESTIONS_FILE_PATH,
 '''
 
 
+'''
 # Test run for Together AI
 process_questions_from_csv(QUESTIONS_FILE_PATH,
                            provider_name='groq',
@@ -352,5 +359,11 @@ process_questions_from_csv(QUESTIONS_FILE_PATH,
                            max_rows=400) 
 
 
+'''
 
-
+process_questions_from_csv(QUESTIONS_FILE_PATH,
+                           provider_name='together',
+                            model_name="meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
+                            batch_size= 1,
+                            max_rows=200)  # "deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free", # "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free", # "llama-3.3-70b-versatile", # "llama-3-8b-8192", # "gemma2-9b-it",
+                              # "deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free", 
