@@ -403,18 +403,22 @@ def calculate_answer_correctness_rag(file_path, model_name="gemini-2.0-flash", m
     
 
 
+MISTRAL_MODEL_QUESTIONS = r"C:\\Users\\kuzne\\Documents\\Python_repo\\2025_01_dissertation\\2025_dissertation\\data\\2025-06 02.06.2025 dataset for evaluation\\psychiatry_train_dataset_groq_mistral-saba-24b_answered.csv"
 
-calculate_answer_correctness_vanilla(QUESTIONS_FILE, 
+'''
+calculate_answer_correctness_vanilla(MISTRAL_MODEL_QUESTIONS, 
                                      model_name="gemini-2.0-flash", 
-                                     max_rows=2, 
+                                     max_rows=311, 
                                      batch_size=1, 
-                                     timeout_seconds=5)  # Evaluate one question takes around 10 seconds, so we can use a small timeout
+                                     timeout_seconds=1)  # Evaluate one question takes around 10 seconds, so we can use a small timeout
 
-calculate_answer_correctness_rag(QUESTIONS_FILE, 
+'''
+
+calculate_answer_correctness_rag(MISTRAL_MODEL_QUESTIONS, 
                                      model_name="gemini-2.0-flash", 
-                                     max_rows=2, 
+                                     max_rows=311, 
                                      batch_size=1, 
-                                     timeout_seconds=5)  # Evaluate one question takes around 10 seconds, so we can use a small timeout
+                                     timeout_seconds=0)  # Evaluate one question takes around 10 seconds, so we can use a small timeout
 
 
 
