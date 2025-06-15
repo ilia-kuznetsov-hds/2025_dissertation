@@ -26,8 +26,9 @@ provider_models = {
 
     "groq": ["llama-3.3-70b-versatile", # https://console.groq.com/docs/models
              "llama-3-8b-8192",
-             "gemma2-9b-it", # 8,192
-             "allam-2-7b"], # 4096 context window size
+             "gemma2-9b-it", # 8192
+             "allam-2-7b", # 4096 context window size
+             "mistral-saba-24b"], # 32k
     "gemini": ["gemini-2.0-flash",
                "gemini-2.0-flash-lite"]
 }
@@ -357,12 +358,43 @@ def process_questions_from_csv(file_path,
             print(f"Processed {i+1}/{total_rows}: Row {idx} - Vanilla Answer: {vanilla_response[:50]}...")
 
         except Exception as e:
-            df.loc[idx, 'Generated Vanilla Answer'] = "error"
-            df.loc[idx, 'Generated RAG Answer'] = "error"
-            df.loc[idx, 'Top K'] = "error"
-            df.loc[idx, 'Retrieved Context'] = "error"
-            df.loc[idx, 'Status'] = "error"
-            print(f"Error at row {idx}: {e}")
+            error_message = str(e)
+            print(f"Error at row {idx}: {error_message}")
+            
+            # Check for rate limit errors - these should stop execution
+            rate_limit_indicators = [
+                "rate_limit_exceeded",
+                "rate limit reached", 
+                "429", # Groq API error code for rate limit
+                "quota exceeded",
+                "too many requests"
+            ]
+
+            if any(indicator in error_message.lower() for indicator in rate_limit_indicators):
+                print("RATE LIMIT DETECTED - Stopping execution to avoid further issues...")
+
+                # Mark current row with rate limit error
+                df.loc[idx, 'Generated Vanilla Answer'] = "rate_limit_error"
+                df.loc[idx, 'Generated RAG Answer'] = "rate_limit_error"
+                df.loc[idx, 'Top K'] = "rate_limit_error"
+                df.loc[idx, 'Retrieved Context'] = "rate_limit_error"
+                df.loc[idx, 'Status'] = "rate_limit_error"
+                
+                # Save progress and exit
+                df.to_csv(OUTPUT_PATH, index=False)
+                print(f"Progress saved to {OUTPUT_PATH}")
+                print(f"Processed {i} rows before hitting rate limit")
+                print("Wait for rate limit reset, then run again to continue")
+                return  # Exit the function
+
+            else:
+                # For all other errors, mark the row and continue processing
+                df.loc[idx, 'Generated Vanilla Answer'] = "error"
+                df.loc[idx, 'Generated RAG Answer'] = "error"
+                df.loc[idx, 'Top K'] = "error"
+                df.loc[idx, 'Retrieved Context'] = "error"
+                df.loc[idx, 'Status'] = "error"
+                print(f"Non-critical error at row {idx}: {e}  - continuing with next row")
 
         # Save after each batch
         if (i + 1) % BATCH_SIZE == 0:
@@ -400,9 +432,9 @@ process_questions_from_csv(QUESTIONS_FILE_PATH,
 # Test run for Together AI
 process_questions_from_csv(QUESTIONS_FILE_PATH,
                            provider_name='groq',
-                           model_name="gemma2-9b-it", # "llama-3.3-70b-versatile", # "llama-3-8b-8192", # "gemma2-9b-it",
+                           model_name="mistral-saba-24b", # "llama-3.3-70b-versatile", # "llama-3-8b-8192", # "gemma2-9b-it",
                            batch_size = 10, 
-                           max_rows=10) 
+                           max_rows=100) 
  
 
 
