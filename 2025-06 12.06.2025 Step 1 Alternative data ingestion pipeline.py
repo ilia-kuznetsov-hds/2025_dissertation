@@ -12,6 +12,7 @@ import chromadb
 import hashlib
 from pathlib import Path
 import json
+import re 
 
 # Download required NLTK data
 '''Ensure that the NLTK punkt tokenizer is available
@@ -51,7 +52,12 @@ def tokenize_sentences(text: str) -> List[str]:
     sentences = nltk.sent_tokenize(text)
     # Clean sentences: remove empty ones and strip whitespace
     sentences = [sent.strip() for sent in sentences if sent.strip()]
-    return sentences
+
+    citation_pattern = re.compile(r'\[\d+\]')
+    # Filter out sentences with citations
+    filtered_sentences = [citation_pattern.sub('', sent).strip() for sent in sentences]
+
+    return filtered_sentences
 
 
 
@@ -78,14 +84,6 @@ def generate_sentence_embeddings(sentences: List[str], embed_model) -> np.ndarra
     return np.array(embeddings)
 
 
-
-
-
-
-
-
-
-
 def calculate_similarity_scores(embeddings: np.ndarray) -> List[float]:
     """
     Calculate cosine similarity between consecutive sentence embeddings
@@ -100,8 +98,11 @@ def calculate_similarity_scores(embeddings: np.ndarray) -> List[float]:
         return []
     
     similarities = []
+    # iterate through embeddings except the last one since we compare pairs
     for i in range(len(embeddings) - 1):
+
         # Reshape for cosine_similarity function
+        # This is necessary because cosine_similarity expects 2D arrays
         emb1 = embeddings[i].reshape(1, -1)
         emb2 = embeddings[i + 1].reshape(1, -1)
         similarity = cosine_similarity(emb1, emb2)[0][0]
@@ -118,6 +119,14 @@ def create_semantic_chunks(sentences: List[str],
                           min_chunk_chars: int = 100) -> List[Tuple[str, dict]]:  # NEW: Minimum characters
     """
     Group sentences into semantic chunks based on similarity scores
+
+    Fucntion loops through each similarity score and evaluates whether to add the next
+    sentence to the current chunk or start new one. 
+    If addition of another sentence exceed the maximum character limit for a chunk,
+    it will create a new chunk. 
+    If the similarity score equals 0.8 (as in the paper ChunkRAG), each sentence will become 
+    a separate chunk. When a threshold is lowered to 0.5, the function will create small chunks.
+
     
     Args:
         sentences: List of sentences
@@ -141,7 +150,7 @@ def create_semantic_chunks(sentences: List[str],
         next_sentence = sentences[i + 1]
         next_sentence_chars = len(next_sentence)
         
-        # More flexible chunking logic
+        # Chunking logic
         will_exceed_max = current_chunk_chars + next_sentence_chars > max_chunk_chars
         below_similarity = similarity < similarity_threshold
         meets_min_requirements = (
@@ -160,8 +169,7 @@ def create_semantic_chunks(sentences: List[str],
             chunk_text = ' '.join(current_chunk_sentences)
             chunk_metadata = {
                 'sentence_count': len(current_chunk_sentences),
-                'char_count': len(chunk_text),
-                'avg_similarity': np.mean([similarities[j] for j in range(max(0, i - len(current_chunk_sentences) + 1), i)]) if i > 0 else 1.0
+                'char_count': len(chunk_text)
             }
             chunks.append((chunk_text, chunk_metadata))
             
@@ -178,8 +186,7 @@ def create_semantic_chunks(sentences: List[str],
         chunk_text = ' '.join(current_chunk_sentences)
         chunk_metadata = {
             'sentence_count': len(current_chunk_sentences),
-            'char_count': len(chunk_text),
-            'avg_similarity': 1.0 if len(similarities) == 0 else np.mean(similarities[-len(current_chunk_sentences)+1:]) if len(current_chunk_sentences) > 1 else 1.0
+            'char_count': len(chunk_text)
         }
         chunks.append((chunk_text, chunk_metadata))
     
@@ -187,9 +194,9 @@ def create_semantic_chunks(sentences: List[str],
 
 def semantic_parse_nodes(documents, 
                         similarity_threshold: float = 0.5,  # Lowered from 0.8
-                        max_chunk_chars: int = 800,  # Increased from 500
-                        min_chunk_sentences: int = 2,  # NEW parameter
-                        min_chunk_chars: int = 150,  # NEW parameter
+                        max_chunk_chars: int = 800,  
+                        min_chunk_sentences: int = 2,  
+                        min_chunk_chars: int = 150,  
                         embedding_model_name: str = 'sentence-transformers/all-MiniLM-L6-v2') -> List[TextNode]:
     """
     Parse documents into semantic chunks using sentence-level similarity
