@@ -430,20 +430,21 @@ process_questions_from_csv(QUESTIONS_FILE_PATH,
 
 
 # Test run for Together AI
+'''
 process_questions_from_csv(QUESTIONS_FILE_PATH,
                            provider_name='groq',
-                           model_name="mistral-saba-24b", # "llama-3.3-70b-versatile", # "llama-3-8b-8192", # "gemma2-9b-it",
+                           model_name="qwen-qwq-32b", # "llama-3.3-70b-versatile", # "llama-3-8b-8192", # "gemma2-9b-it",
                            batch_size = 10, 
                            max_rows=100) 
+                           '''
  
 
 
-'''
+
 process_questions_from_csv(QUESTIONS_FILE_PATH,
                            provider_name='together',
                             model_name="meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
-                            batch_size= 1,
-                            max_rows=400,
+                            batch_size= 5,
+                            max_rows=200,
                             )  # "deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free", # "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free", # "llama-3.3-70b-versatile", # "llama-3-8b-8192", # "gemma2-9b-it",
                               # "deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free", 
-'''
