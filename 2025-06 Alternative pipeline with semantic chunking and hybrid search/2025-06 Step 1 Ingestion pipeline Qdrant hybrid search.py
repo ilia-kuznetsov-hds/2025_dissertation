@@ -140,7 +140,7 @@ def initialize_vector_store():
         StorageContext: Storage context for the vector store.
         '''
     client = QdrantClient(url="http://localhost:6333")
-    collection_name = "qdrant_medical_documents_3"
+    collection_name = "psychiatry_guidelines"
     # Check if collection exists, if not create it
     try:
         client.get_collection(collection_name)
@@ -190,9 +190,11 @@ def populate_index(nodes, storage_context):
     Args:
         nodes (List[Document]): List of Document objects to be added to the vector store.
         storage_context (StorageContext): Storage context for the vector store.
+    Returns:
+        None because it populates the index that is stored on disk
     '''
     client = QdrantClient(url="http://localhost:6333")
-    collection_name = "qdrant_medical_documents_3"
+    collection_name = "psychiatry_guidelines"
 
     existing_ids = set()
     try:
@@ -219,14 +221,31 @@ def populate_index(nodes, storage_context):
     collection_info = client.get_collection(collection_name)
     print(f"Collection info: {collection_info}")
 
+
+def process_folder(folder_path, storage_context
+                   ):
+    """
+    Process all PDF files in a folder
+    """
+    for filename in os.listdir(folder_path):
+        if filename.lower().endswith('.pdf'):
+            file_path = os.path.join(folder_path, filename)
+            print(f"\nProcessing: {filename}")
+            long_nodes = create_semantic_nodes(file_path)
+            nodes = split_long_nodes(long_nodes, max_length=1500)
+            populate_index(nodes, storage_context)
+
+    print(f"Processing complete.")
+
 # Main execution
+# Pay attention to collection name - you have to change it in 2 functions 
 
-filepath = r"C:\\Users\\kuzne\\Desktop\\03 University\\Dissertation\\06 Medical Text Corpus\\BMJ\\Stripped PDFs\\Alzheimer's disease stripped.pdf"
-
-long_nodes = create_semantic_nodes(filepath)
-
-nodes = split_long_nodes(long_nodes, max_length=1500)
+folder_path = r"C:\\Users\\kuzne\\Desktop\\03 University\\Dissertation\\06 Medical Text Corpus\\BMJ\\Stripped PDFs"
 
 vector_store, storage_context = initialize_vector_store()
 
-populate_index(nodes, storage_context)
+process_folder(folder_path, storage_context)
+
+
+
+    
