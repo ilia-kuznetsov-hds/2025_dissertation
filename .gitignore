@@ -41,3 +41,8 @@ data/2025-05 08.05.25 dataset for classification/MedQA_open_dataset_classified_c
 data/2025-05 22.05.25 dataset for evaluation/MedQA_open_dataset_classified.xlsx
 data/2025-06 02.06.2025 dataset for evaluation/MedQA_open_dataset_classified.xlsx
 chromadb_alternative/chroma.sqlite3
+data/2025-06 hybrid search/psychiatry_test_dataset_together_meta-llama_Llama-4-Scout-17B-16E-Instruct_top2_answered.json
+data/2025-06 Step 0 Dataset preparation/MedQA_open_dataset_classified_categories.xlsx
+data/2025-06 Step 0 Dataset preparation/MedQA_open_dataset_classified_psychiatry_evaluation.json
+data/2025-06 Step 0 Dataset preparation/MedQA_open_dataset_classified.xlsx
+data/2025-06 Step 0 Dataset preparation/MedQA_open_dataset.xlsx

@@ -214,7 +214,18 @@ def calculate_rag_metric(file_path, model_name="gemini-2.0-flash", metric:str= "
         print(f"All questions have been evaluated! Total: {len(df)} questions.")
 
 
-calculate_rag_metric(QUESTIONS_FILE, model_name="gemini-2.0-flash", metric="answer_relevancy", max_rows=8, batch_size=1, timeout_seconds=10)
+
+FILE_LLAMA_3B = r"C:\\Users\\kuzne\Documents\\Python_repo\\2025_01_dissertation\\2025_dissertation\data\\2025-06 hybrid search\\psychiatry_test_dataset_together_meta-llama_Llama-3.2-3B-Instruct-Turbo_answered.csv"
+
+calculate_rag_metric(FILE_LLAMA_3B, 
+                     model_name="gemini-2.0-flash", 
+                     metric="answer_relevancy", 
+                     max_rows=450, batch_size=10, timeout_seconds=0)
+
+calculate_rag_metric(FILE_LLAMA_3B, 
+                     model_name="gemini-2.0-flash", 
+                     metric="faithfulness", 
+                     max_rows=450, batch_size=10, timeout_seconds=0)
 
 
 

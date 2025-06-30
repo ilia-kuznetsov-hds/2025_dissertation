@@ -10,12 +10,14 @@ from llama_index.llms.together import TogetherLLM
 from llama_index.core.llms import ChatMessage
 import pandas as pd
 import time
+import json
+from llama_index.core import get_response_synthesizer
 
 # Configure global embedding model
 # You need too do it, because by default LlmaIndex uses OpenAI embedding model
 Settings.embed_model = HuggingFaceEmbedding(model_name='sentence-transformers/all-mpnet-base-v2')
 
-# By default, response senthesizer is set to OpenAI, but we want to use Google GenAI
+# By default, LlamaIndex's response senthesizer is set to OpenAI, but we want to use Google GenAI
 google_api_key = os.getenv("GOOGLE_API_KEY")
 Settings.llm = GoogleGenAI(model="gemini-2.0-flash")
 
@@ -23,7 +25,7 @@ groq_api_key = os.getenv("GROQ_API_KEY")
 together_api_key = os.getenv("TOGETHER_API_KEY")
 
 
-def activate_query_engine(similarity_top_k=2, sparse_top_k=12, llm = None):
+def activate_query_engine(similarity_top_k=2, sparse_top_k=12, llm = None, response_mode="compact"):
     """
     Activate Qdrant for hybrid search.
     This function initializes the Qdrant client populated with psychiatry guidelines
@@ -31,14 +33,17 @@ def activate_query_engine(similarity_top_k=2, sparse_top_k=12, llm = None):
     Args:
         similarity_top_k (int): Number of top similar vectors to return.
         sparse_top_k (int): Number of top sparse vectors to return.
+        llm: Language model to use for responses. If None, uses Settings.llm.
+        response_mode (str): Response synthesis mode. Options: "compact", "refine", "tree_summarize"
     Returns:
         query_engine (QueryEngine): A query engine configured for hybrid search.
+
     """
     # Initialize Qdrant client
     client = QdrantClient(url="http://localhost:6333")
     
     # Define collection name
-    # The collection name for last pipeline - "psychiatry_guidelines"
+    # The collection name for the last pipeline - "psychiatry_guidelines"
     collection_name = "psychiatry_guidelines"
     
     # Check if the collection exists
@@ -62,12 +67,26 @@ def activate_query_engine(similarity_top_k=2, sparse_top_k=12, llm = None):
         embed_model=Settings.embed_model
     )
     
+    # Use provided LLM or fall back to Settings.llm
+    response_llm = llm if llm is not None else Settings.llm
+
+    # https://docs.llamaindex.ai/en/stable/module_guides/querying/response_synthesizers/
+    # Possible modes: 
+    # compact - intermediate option, 
+    # refine - uses the most LLM calls, 
+    # tree_summarize - tries to stuck everthing in one message, the most concise
+    response_synthesizer = get_response_synthesizer(
+        response_mode=response_mode
+    )
+
+
     # Create query engine with hybrid search capabilities
     query_engine = index.as_query_engine(
         similarity_top_k=similarity_top_k, 
         sparse_top_k=sparse_top_k, 
         vector_store_query_mode="hybrid",
-        llm=llm  # Use provided LLM or default LLM
+        llm=response_llm,
+        response_synthesizer=response_synthesizer  
     )
     
     return query_engine
@@ -77,7 +96,8 @@ def generate_rag_response(user_query: str,
                           similarity_top_k=3, 
                           sparse_top_k=10,
                           provider_name="groq", 
-                          model_name="llama-3.3-70b-versatile"):
+                          model_name="llama-3.3-70b-versatile",
+                          response_synthesizer_mode="compact"):
     """
     Generate a response using RAG-enhanced LLM
 
@@ -89,29 +109,43 @@ def generate_rag_response(user_query: str,
     - context: The context retrieved from the vector store and used to generate the answer
     """
     
-
     # Step 1: Query rewriting using the LLM 
-    # I use Google Gemini for rewriting queries because it has the biggest free tier limits
     rewrite_prompt = f"""
-    You are a search expert. Your task is to rewrite the following medical question into concise and effective search query
-    that focus on the key medical concepts from the question.
-    The query should be 3-7 words long and target the core medical conditions or treatments.
+    You are a psychiatric search expert specializing in information retrieval. Your task is to generate search queries 
+    to effectively retrieve relevant psychiatric literature based on the user's question.
     
+    Follow these guidelines:
+    1. **Rank by Importance**: The queries must be ranked by importance with respect to the question, with the first one being the most important.
+    2. **Relevance to Question**: Each query may ask for information regarding the answer options but must always be relevant to the question.
+    3. **Differentiable and Efficient**: The queries must be differentiable and efficient, ensuring that the aggregate retrieved information from all queries
+    provides as much as possible the needed information to arrive at the correct answer.
+
     USER QUESTION: {user_query}
-    
-    Format your response as one search query without any explanations or numbering.
+
+    Example:
+        Question: "A 55-year-old man with a history of myocardial infarction 3 months ago presents with feelings of depression. 
+        He says that he has become detached from his friends and family and has daily feelings of hopelessness. 
+        He says he has started to avoid strenuous activities and is no longer going to his favorite bar where he used to spend a lot of time 
+        drinking with his buddies. The patient says these symptoms have been ongoing for the past 6 weeks, and his wife is starting to worry about his behavior. 
+        He notes that he continues to have nightmares that he is having another heart attack. He says he is even more jumpy than he used to be, and 
+        he startles very easily. What according to you is the probable diagnosis?"
+        Output:
+        {{
+        "number_of_searches": 3,
+        "search_queries": {{
+        "1": "PTSD diagnostic criteria",
+        "2": "trauma-related disorders symptoms diagnosis",
+        "3": "PTSD treatment guidelines therapy"
+        }},
+        "search_query_goals": {{
+        "1": "What are the DSM-5 criteria for PTSD?",
+        "2": "How are trauma-related disorders diagnosed?",
+        "3": "What are the treatment guidelines for PTSD?"
+        }}
+        }}
+
+        The output must follow the JSON format as in the above example.
     """
-    rewriter_llm = GoogleGenAI(
-            model='gemini-2.0-flash',  
-            api_key=google_api_key)
-    rewrite_response = rewriter_llm.complete(rewrite_prompt)
-    rewritten_queries = rewrite_response.text.strip().split('\n') # If we change prompt to return multiple queries, we can split them by new line
-
-    # Filter out empty queries and strip whitespace
-    rewritten_queries = [q.strip() for q in rewritten_queries if q.strip()]
-
-    print(f"Original query: {user_query}")
-    print(f"Rewritten queries: {rewritten_queries}")
 
     # Step 2: Retrieve contexts using all queries
     if provider_name.lower() == "together":
@@ -124,10 +158,17 @@ def generate_rag_response(user_query: str,
             temperature=0.1
         )
 
+        messages=[ChatMessage(role = "user", content = rewrite_prompt)]
+        # Use non-streaming version to capture the full response
+        rewrite_query = llm.chat(messages)
+        search_queries_json = rewrite_query.message.content.strip()
+        
 
     elif provider_name.lower() == "groq":
         llm = Groq(model=model_name, 
                    api_key=groq_api_key)
+        rewrite_query = llm.complete(rewrite_prompt)
+        search_queries_json = str(full_response)
         
 
     else:
@@ -135,41 +176,110 @@ def generate_rag_response(user_query: str,
             model=model_name,
             api_key=google_api_key  
         )
-        
+        rewrite_query = llm.complete(rewrite_prompt)
+        search_queries_json = rewrite_query.text
 
+    # Parse the JSON response to extract search queries
+    try:
+        # Try to extract JSON from the response (in case there's extra text)
+        start_idx = search_queries_json.find('{')
+        end_idx = search_queries_json.rfind('}') + 1
+        if start_idx != -1 and end_idx != 0:
+            json_str = search_queries_json[start_idx:end_idx]
+        else:
+            json_str = search_queries_json
+            
+        queries_data = json.loads(json_str)
+        search_queries = list(queries_data["search_queries"].values())
+        print(f"Extracted search queries: {search_queries}")
+    
+    # Fallback to using the original query    
+    except (json.JSONDecodeError, KeyError) as e:
+        print(f"Error parsing JSON response: {e}")
+        search_queries = [user_query]
+        print(f"Using fallback query: {search_queries}")
 
+    # Step 2: Retrieve contexts using all queries
     query_engine = activate_query_engine(similarity_top_k=similarity_top_k, 
                                          sparse_top_k=sparse_top_k,
-                                         llm=llm)  
+                                         llm=llm,
+                                         response_mode=response_synthesizer_mode)
     
-    context = query_engine.query(user_query)
+    long_context = []
+    short_contexts = []
+    all_sources = []
+
+    
+    for i, query in enumerate(search_queries):
+        print(f"Executing search query {i+1}: {query}")
+        context = query_engine.query(query)
+        # Extract context with source information
+        context_with_sources = ""
+        sources = set()  # Use set to avoid duplicate sources
+
+        # Get the source nodes from the response
+        if hasattr(context, 'source_nodes') and context.source_nodes:
+            for j, source_node in enumerate(context.source_nodes):
+                node_text = source_node.node.text
+                node_metadata = source_node.node.metadata
+                
+                # Extract source information
+                # Unknown - fallback values that appear when the metadata is missing or incomplete
+                source_doc = node_metadata.get('source', 'Unknown document')
+                page_num = node_metadata.get('page', 'Unknown page')
+                source_info = f"[Source: {source_doc}, Page: {page_num}]"
+                sources.add(source_info)
+                # Add numbered reference for this chunk
+                context_with_sources += f"\n[Response {j+1}] {node_text}\n{source_info}\n"
+        else:
+            # Fallback if no source nodes available
+            context_with_sources = str(context)
+            sources.add("[Source: Unable to retrieve source information]")
+        
+        long_context.append(context_with_sources)
+        short_contexts.append(str(context))  # Save the result of the query engine's LLM call
+        all_sources.extend(list(sources))
+    
+    # Combine all contexts with clear separation
+    combined_context = "\n\n--- Context from different searches ---\n\n".join(short_contexts)
+    
+    # Create a summary of all sources used
+    unique_sources = list(set(all_sources))
+    sources_summary = "\n".join([f"• {source}" for source in unique_sources])
+     
 
     prompt = f"""
-        You are a clinically informed mental health decision support system.
-            • Provide accurate, evidence-based information relevant to the user’s question.
-            • Use the provided context to generate your response.
+        You are a clinically informed mental health decision support system and your task is to answer provided question:
+            • Carefully analyze provided context and user question.
+            • Identify the most relevant information from the context to answer the question. 
+            • Think through the problem step-by-step, using only the relevant information to determine the correct answer.
             • If the available information is insufficient to generate a reliable answer, clearly state that and avoid unsupported assumptions.
             • Ensure your response is precise, concise (no longer than 5-7 sentences), and directly addresses the user’s question.
 
-        CONTEXT: {context}
+        CONTEXT: {combined_context}
         USER QUESTION: {user_query}
+        Please think step-by-step and output your response precise and concise (no longer than 5-7 sentences)
+
         """
     
     if provider_name.lower() == "together":
         messages=[ChatMessage(role = "user", content = prompt)]
         # Use non-streaming version to capture the full response
         full_response = llm.chat(messages)
-        answer_text = full_response.message.content
+        final_answer = full_response.message.content
 
     elif provider_name.lower() == "groq":
         full_response = llm.complete(prompt)
-        answer_text = str(full_response)
+        final_answer = str(full_response)
 
     else:
         full_response = llm.complete(prompt)
-        answer_text = full_response.text
+        final_answer = full_response.text
 
-    return answer_text, context
+
+    return final_answer, combined_context, sources_summary, long_context
+
+
 
 
 def generate_vanilla_response(user_query: str,  
@@ -186,12 +296,15 @@ def generate_vanilla_response(user_query: str,
     user_query = user_query
 
     prompt = f"""
-        You are a clinically informed mental health decision support system.
-            • Provide accurate, evidence-based information relevant to the user’s question.
+        You are a clinically informed mental health decision support system and your task is to answer provided question:
+            • Carefully analyze provided user question.
+            • Identify the most relevant information to answer the question. 
+            • Think through the problem step-by-step, using only the relevant information to determine the correct answer.
             • If the available information is insufficient to generate a reliable answer, clearly state that and avoid unsupported assumptions.
             • Ensure your response is precise, concise (no longer than 5-7 sentences), and directly addresses the user’s question.
 
         USER QUESTION: {user_query}
+        Please think step-by-step and output your response precise and concise (no longer than 5-7 sentences)
         """
     if provider_name.lower() == "together":
         llm = TogetherLLM(
@@ -222,15 +335,26 @@ def generate_vanilla_response(user_query: str,
     return answer_text
 
 
+
+question = """A 27-year-old woman, primigravida, gave birth to a boy 3 months ago and now presents the newborn to your clinic for evaluation. 
+                She did not receive prenatal care. She reports that she was taking a medication for her mood swings, but cannot remember the medication’s name. 
+                The baby was born cyanotic, with a congenital malformation of the heart that is characterized by apical displacement of the septa and posterior 
+                tricuspid valve leaflets. A chest radiograph is shown in the image. What medications taken by the mother would have led to this condition?"""
+
+
+   
+
 def process_questions_from_file(file_path, 
                                provider_name,
                                model_name,
                                similarity_top_k=2,
                                sparse_top_k=10,
+                               response_synthesizer_mode="compact",
                                batch_size: int = 1, 
                                max_rows: int = 1000,  
                                timeout_interval = 1,
-                               timeout_seconds = 10):
+                               timeout_seconds = 10,
+                               output_format='csv'):
     
     FILE_PATH = file_path
     BATCH_SIZE = batch_size
@@ -238,19 +362,29 @@ def process_questions_from_file(file_path,
     MODEL = model_name
     similarity_top_k = similarity_top_k
     sparse_top_k = sparse_top_k
+    
+
 
     # Clean model name to use in filename by replacing slashes with underscores
     # Because Together AI models contain slach in their names and it results in an error
     safe_model_name = model_name.replace('/', '_')
     base_name = os.path.basename(FILE_PATH)
     file_name_without_ext = os.path.splitext(base_name)[0]
+
+    file_extension = ".json" if output_format.lower() == "json" else ".csv"
     OUTPUT_PATH = os.path.join(os.path.dirname(FILE_PATH), 
-                              f"{file_name_without_ext}_{provider_name}_{safe_model_name}_answered.csv")
+                              f"{file_name_without_ext}_{provider_name}_{safe_model_name}_top{similarity_top_k}_answered{file_extension}")
 
     # Check if the output file already exists 
     if os.path.exists(OUTPUT_PATH):
         print(f"Resuming from existing file: {OUTPUT_PATH}")
-        df = pd.read_csv(OUTPUT_PATH)
+        if output_format.lower() == "json":
+            with open(OUTPUT_PATH, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            df = pd.DataFrame(data)  # Create DataFrame for consistent processing
+        else:
+            df = pd.read_csv(OUTPUT_PATH)
+        
     else:
         print(f"Starting new processing on: {FILE_PATH}")
         df = pd.read_csv(FILE_PATH)
@@ -261,6 +395,28 @@ def process_questions_from_file(file_path,
         df['Retrieved Context'] = None
         df['Top k Similarity'] = None
         df['Top k Sparse'] = None
+
+        # Add additional fields for JSON format
+        if output_format.lower() == "json":
+            df['Sources Summary'] = None
+            df['Detailed Context'] = None
+
+    def save_data(df, output_path, output_format):
+        """
+        Save DataFrame to either CSV or JSON format
+        
+        Args:
+            df: pandas DataFrame to save
+            output_path: path where to save the file
+            output_format: "csv" or "json"
+        """
+        if output_format.lower() == "json":
+            # Convert DataFrame to list of dictionaries for JSON
+            data = df.to_dict('records')
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+        else:
+            df.to_csv(output_path, index=False)
 
     # Get rows of unanswered questions
     # The dataframe is updated in a way that if vanilla answer is missing, it means that RAG response is also missing.
@@ -291,19 +447,20 @@ def process_questions_from_file(file_path,
         # Handle API errors
         if vanilla_response is None:
             print(f"Error encountered. Saving progress and exiting.")
-            df.to_csv(OUTPUT_PATH, index=False)
+            save_data(df, OUTPUT_PATH, output_format)
             return
         
-        rag_response, context = generate_rag_response(user_query,
-                                                similarity_top_k=similarity_top_k,
-                                                sparse_top_k=sparse_top_k,
-                                                provider_name=PROVIDER, 
-                                                model_name=MODEL)
-      
+        rag_response, context, sources_summary, long_context = generate_rag_response(user_query,
+                                                                similarity_top_k=similarity_top_k,
+                                                                sparse_top_k=sparse_top_k,
+                                                                provider_name=PROVIDER, 
+                                                                model_name=MODEL,
+                                                                response_synthesizer_mode=response_synthesizer_mode)
+        
          # Handle API errors
         if rag_response is None:
             print(f"Error encountered. Saving progress and exiting.")
-            df.to_csv(OUTPUT_PATH, index=False)
+            save_data(df, OUTPUT_PATH, output_format)
             return
         
         # Update the dataframe
@@ -312,19 +469,24 @@ def process_questions_from_file(file_path,
         df.loc[idx, 'Retrieved Context'] = context
         df.loc[idx, 'Top k Similarity'] = similarity_top_k
         df.loc[idx, 'Top k Sparse'] = sparse_top_k
+        if output_format.lower() == "json":
+            df.loc[idx, 'Sources Summary'] = sources_summary
+            df.loc[idx, 'Detailed Context'] = str(long_context)  
+
         print(f"Processed {i+1}/{total_rows}: Row {idx} - Vanilla Answer: {vanilla_response[:50]}...")
 
         # Save after each batch
         if (i + 1) % BATCH_SIZE == 0:
             print(f"Saving progress after batch...")
-            df.to_csv(OUTPUT_PATH, index=False)
+            save_data(df, OUTPUT_PATH, output_format)
         
         # Add timeout after specified interval
         if (i + 1) % timeout_interval == 0 and i+1 < total_rows:
             print(f"Taking a {timeout_seconds} second break to avoid rate limits...")
             time.sleep(timeout_seconds)
 
-    df.to_csv(OUTPUT_PATH, index=False)
+    # Final save
+    save_data(df, OUTPUT_PATH, output_format)
     print(f"Results saved to {OUTPUT_PATH}")
     return None
 
@@ -333,23 +495,17 @@ def process_questions_from_file(file_path,
 QUESTIONS_FILE = r"C:\\Users\\kuzne\\Documents\\Python_repo\\2025_01_dissertation\\2025_dissertation\\data\\2025-06 hybrid search\\psychiatry_test_dataset.csv"
 
 
-process_questions_from_file(file_path=QUESTIONS_FILE, 
-                               provider_name="groq",
-                               model_name="meta-llama/llama-4-maverick-17b-128e-instruct",
-                               batch_size=4,
-                               max_rows=320,
-                               timeout_seconds=20,
-                               similarity_top_k=3,
-                               sparse_top_k=10)
+# Test the function with a sample file
+process_questions_from_file(file_path=QUESTIONS_FILE,
+                            provider_name="together",
+                            model_name="meta-llama/Llama-4-Scout-17B-16E-Instruct",
+                            similarity_top_k=2,
+                            sparse_top_k=10,
+                            response_synthesizer_mode="compact",
+                            batch_size=1,
+                            max_rows=5,
+                            timeout_interval=5,
+                            timeout_seconds=0,
+                            output_format='json') 
 
-'''
-# TOGETHER AI meta-llama/Llama-3.2-3B-Instruct-Turbo
-process_questions_from_file(file_path=QUESTIONS_FILE, 
-                               provider_name="together",
-                               model_name="meta-llama/Llama-3.2-3B-Instruct-Turbo",
-                               batch_size=4,
-                               max_rows=400,
-                               timeout_seconds=0,
-                               similarity_top_k=3,
-                               sparse_top_k=10)
-'''
+

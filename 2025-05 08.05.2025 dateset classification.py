@@ -8,6 +8,25 @@ client = genai.Client(api_key=google_api_key)
 
 dataset_path = "C:\\Users\\kuzne\\Documents\\Python_repo\\2025_01_dissertation\\2025_dissertation\data\\2025-05 08.05.25 dataset for classification\\MedQA_open_dataset.xlsx"
 
+'''
+We use MedQA-Open dataset from the paper "Few shot chain-of-thought driven reasoning to prompt LLMs for open ended medical question answering"
+The dataset available at (ancillary files setion):
+https://arxiv.org/abs/2403.04890
+
+The author of the paper used the USMLE-MedQA dataset (Jin et al., 2021), a medical exam dataset that consists of questions 
+sourced from professional medical board exams in the USA.
+
+
+The authors used the MedQA dataset (Zhang et al., 2018) is a publicly available collection of complex medical questions
+with multiple choices based on the United States medical license exams. To emulate real-world medical scenarios, 
+they convert these multiple-choice questions into open-ended questions by (1) removing the multiple-choice options and 
+(2) re-pharsing the question to be open-ended using LLM, creating MedQA-Open. 
+
+The dataset contains around 9000 questions related to different medical fields, including psychiatry. 
+The following script uses LLM to classify questions as psychiatry-related or not psychiatry-related.
+It is a screening step that uses fast cost-efficient LLM to filter out non-psychiatry questions 
+before using more expensive LLMs for detailed analysis.
+'''
 
 
 def classify_question(question, answer):
