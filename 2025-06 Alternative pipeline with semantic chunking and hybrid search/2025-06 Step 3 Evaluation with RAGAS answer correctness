@@ -4,12 +4,11 @@ from llama_index.llms.google_genai import GoogleGenAI
 from ragas.llms import LlamaIndexLLMWrapper
 from ragas import evaluate
 from ragas.metrics import faithfulness, answer_correctness
-from ragas import EvaluationDataset
-from ragas import SingleTurnSample
 from datasets import Dataset
 import time
 from llama_index.embeddings.google_genai import GoogleGenAIEmbedding
 from ragas.embeddings import LlamaIndexEmbeddingsWrapper
+import json
 
 
 google_api_key = os.getenv("GOOGLE_API_KEY")
@@ -19,7 +18,8 @@ QUESTIONS_FILE = r"C:\\Users\\kuzne\\Documents\\Python_repo\\2025_01_dissertatio
 # Constants for context window sizes
 MODEL_CONTEXT_LIMITS = {
     "gemini-2.0-flash": 1048576,  # Maximum input tokens: 1,048,576; Maximum output tokens: 8,192; https://ai.google.dev/gemini-api/docs/models#gemini-2.0-flash
-    "gemini-2.0-flash-lite": 1048576,  # Maximum input tokens: 1,048,576; Maximum output tokens: 8,192; https://ai.google.dev/gemini-api/docs/models#gemini-2.0-flash-lite
+    "gemini-2.0-flash-lite": 1048576,
+    "gemini-2.5-flash":1048576  # Maximum input tokens: 1,048,576; Maximum output tokens: 8,192; https://ai.google.dev/gemini-api/docs/models#gemini-2.0-flash-lite
 }
 
 
@@ -124,15 +124,19 @@ def calculate_answer_correctness_vanilla(file_path, model_name="gemini-2.0-flash
     
     FILE_PATH = file_path
     BATCH_SIZE = batch_size
-    OUTPUT_PATH = FILE_PATH.replace(".csv", "_vanilla_answer_correctness_evaluated.csv")
+    OUTPUT_PATH = FILE_PATH.replace(".json", "_vanilla_answer_correctness_evaluated.json")
 
-    # Check if the output file already exists 
+    # Load JSON data
     if os.path.exists(OUTPUT_PATH):
         print(f"Resuming from existing file: {OUTPUT_PATH}")
-        df = pd.read_csv(OUTPUT_PATH)
+        with open(OUTPUT_PATH, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        df = pd.DataFrame(data)
     else:
-        print(f"Starting new evaluation on: {FILE_PATH}")
-        df = pd.read_csv(FILE_PATH)
+        print(f"Starting new evaluation on: {file_path}")
+        with open(file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        df = pd.DataFrame(data)
         df['Answer Correctness for vanilla run 1'] = None
         df['Answer Correctness for vanilla run 2'] = None
         df['Answer Correctness for vanilla run 3'] = None
@@ -226,7 +230,9 @@ def calculate_answer_correctness_vanilla(file_path, model_name="gemini-2.0-flash
         # Save after each batch or when an error occurs
         if ((i + 1) % BATCH_SIZE == 0) or error_rows > 0:
             print(f"Saving progress...")
-            df.to_csv(OUTPUT_PATH, index=False)
+            data = df.to_dict('records')
+            with open(OUTPUT_PATH, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
             error_rows = 0  # Reset error counter after saving
 
 
@@ -249,15 +255,19 @@ def calculate_answer_correctness_rag(file_path, model_name="gemini-2.0-flash", m
     '''
     FILE_PATH = file_path
     BATCH_SIZE = batch_size
-    OUTPUT_PATH = FILE_PATH.replace(".csv", "_rag_answer_correctness_evaluated.csv")
+    OUTPUT_PATH = FILE_PATH.replace(".json", "_rag_answer_correctness_evaluated.json")
 
-    # Check if the output file already exists 
+    # Load JSON data
     if os.path.exists(OUTPUT_PATH):
         print(f"Resuming from existing file: {OUTPUT_PATH}")
-        df = pd.read_csv(OUTPUT_PATH)
+        with open(OUTPUT_PATH, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        df = pd.DataFrame(data)
     else:
-        print(f"Starting new evaluation on: {FILE_PATH}")
-        df = pd.read_csv(FILE_PATH)
+        print(f"Starting new evaluation on: {file_path}")
+        with open(file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        df = pd.DataFrame(data)  # Create DataFrame for consistent processing
         df['Answer Correctness for RAG run 1'] = None
         df['Answer Correctness for RAG run 2'] = None
         df['Answer Correctness for RAG run 3'] = None
@@ -356,7 +366,9 @@ def calculate_answer_correctness_rag(file_path, model_name="gemini-2.0-flash", m
         # Save after each batch or when an error occurs
         if ((i + 1) % BATCH_SIZE == 0) or error_rows > 0:
             print(f"Saving progress...")
-            df.to_csv(OUTPUT_PATH, index=False)
+            data = df.to_dict('records')
+            with open(OUTPUT_PATH, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
             error_rows = 0  # Reset error counter after saving
 
 
@@ -372,9 +384,9 @@ def calculate_answer_correctness_rag(file_path, model_name="gemini-2.0-flash", m
         print(f"All questions have been evaluated! Total: {len(df)} questions.")
 
 
-QUESTIONS_FILE = r"C:\\Users\\kuzne\\Documents\\Python_repo\\2025_01_dissertation\\2025_dissertation\\data\\2025-06 hybrid search\\psychiatry_train_dataset_groq_mistral-saba-24b_answered.csv"
 
-def run_interchangeable_evaluation(file_path, model_name="gemini-2.0-flash", cycles=10, batch_size=5, timeout_seconds=10):
+
+def run_interchangeable_evaluation(file_path, model_name="gemini-2.5-flash", cycles=10, batch_size=5, timeout_seconds=10):
     """
     Run vanilla and RAG answer correctness evaluation interchangeably.
     
@@ -401,7 +413,7 @@ def run_interchangeable_evaluation(file_path, model_name="gemini-2.0-flash", cyc
         print("-" * 40)
         
         # Run vanilla evaluation
-        print(f"📝 Running VANILLA evaluation (Cycle {cycle})")
+        print(f"Running VANILLA evaluation (Cycle {cycle})")
         try:
             calculate_answer_correctness_vanilla(
                 file_path=file_path,
@@ -410,11 +422,11 @@ def run_interchangeable_evaluation(file_path, model_name="gemini-2.0-flash", cyc
                 batch_size=batch_size,
                 timeout_seconds=timeout_seconds
             )
-            print(f"✅ Vanilla evaluation completed for cycle {cycle}")
+            print(f"Vanilla evaluation completed for cycle {cycle}")
         except Exception as e:
-            print(f"❌ Error in vanilla evaluation cycle {cycle}: {str(e)}")
+            print(f"Error in vanilla evaluation cycle {cycle}: {str(e)}")
         
-        print(f"\n🤖 Running RAG evaluation (Cycle {cycle})")
+        print(f"Running RAG evaluation (Cycle {cycle})")
         try:
             calculate_answer_correctness_rag(
                 file_path=file_path,
@@ -423,28 +435,30 @@ def run_interchangeable_evaluation(file_path, model_name="gemini-2.0-flash", cyc
                 batch_size=batch_size,
                 timeout_seconds=timeout_seconds
             )
-            print(f"✅ RAG evaluation completed for cycle {cycle}")
+            print(f"RAG evaluation completed for cycle {cycle}")
         except Exception as e:
-            print(f"❌ Error in RAG evaluation cycle {cycle}: {str(e)}")
-        
-        # Add a pause between cycles
-        if cycle < cycles:
-            print(f"\n⏸️  Waiting before next cycle...")
-            time.sleep(2)  # 5 second pause between cycles
+            print(f"Error in RAG evaluation cycle {cycle}: {str(e)}")
+         
     
-    print(f"\n🎉 All {cycles} cycles completed!")
+    print(f"All {cycles} cycles completed!")
     print("=" * 80)
 
 
-
+# 
 
 FILE_LLAMA_8B = r"C:\\Users\\kuzne\Documents\\Python_repo\\2025_01_dissertation\\2025_dissertation\data\\2025-06 hybrid search\\psychiatry_test_dataset_together_meta-llama_Llama-3.2-3B-Instruct-Turbo_answered.csv"
 
+# LLAMA 4 SCOUT
+
+LLAMA4_SCOUT = r"experiments\\test_dataset_together_meta-llama_Llama-4-Scout-17B-16E-Instruct_top5_answered.json"
+
+
+
 # Option 1: Use the same file path as defined in your script
 run_interchangeable_evaluation(
-     file_path=FILE_LLAMA_8B,
-     model_name="gemini-2.0-flash",
-     cycles=45,
+     file_path=LLAMA4_SCOUT,
+     model_name="gemini-2.5-flash",
+     cycles=1,
      batch_size=10,
      timeout_seconds=0)
 

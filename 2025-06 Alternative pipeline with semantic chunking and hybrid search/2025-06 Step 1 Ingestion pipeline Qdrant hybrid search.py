@@ -135,6 +135,9 @@ def split_long_nodes(nodes, max_length=1100):
 def initialize_vector_store():
     '''
     Initialize Qdrant vector store and create collection if it doesn't exist.
+
+    Inconvinience: if you change the collection name, you have to change it in populate_index function as well.
+    
     Returns:
         QdrantVectorStore: Initialized Qdrant vector store.
         StorageContext: Storage context for the vector store.

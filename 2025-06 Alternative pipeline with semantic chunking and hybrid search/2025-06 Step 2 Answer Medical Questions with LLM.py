@@ -14,10 +14,10 @@ import json
 from llama_index.core import get_response_synthesizer
 
 # Configure global embedding model
-# You need too do it, because by default LlmaIndex uses OpenAI embedding model
+# You need to do it, because by default LlmaIndex uses OpenAI embedding model
 Settings.embed_model = HuggingFaceEmbedding(model_name='sentence-transformers/all-mpnet-base-v2')
 
-# By default, LlamaIndex's response senthesizer is set to OpenAI, but we want to use Google GenAI
+# By default, LlamaIndex's response senthesizer is set to OpenAI, but we want to use Google GenAI as a fallback
 google_api_key = os.getenv("GOOGLE_API_KEY")
 Settings.llm = GoogleGenAI(model="gemini-2.0-flash")
 
@@ -74,7 +74,7 @@ def activate_query_engine(similarity_top_k=2, sparse_top_k=12, llm = None, respo
     # Possible modes: 
     # compact - intermediate option, 
     # refine - uses the most LLM calls, 
-    # tree_summarize - tries to stuck everthing in one message, the most concise
+    # tree_summarize - tries to stuck everything in one message, the most concise
     response_synthesizer = get_response_synthesizer(
         response_mode=response_mode
     )
@@ -93,7 +93,7 @@ def activate_query_engine(similarity_top_k=2, sparse_top_k=12, llm = None, respo
 
 
 def generate_rag_response(user_query: str,  
-                          similarity_top_k=3, 
+                          similarity_top_k=5, 
                           sparse_top_k=10,
                           provider_name="groq", 
                           model_name="llama-3.3-70b-versatile",
@@ -168,7 +168,7 @@ def generate_rag_response(user_query: str,
         llm = Groq(model=model_name, 
                    api_key=groq_api_key)
         rewrite_query = llm.complete(rewrite_prompt)
-        search_queries_json = str(full_response)
+        search_queries_json = str(rewrite_query)
         
 
     else:
@@ -209,7 +209,6 @@ def generate_rag_response(user_query: str,
     short_contexts = []
     all_sources = []
 
-    
     for i, query in enumerate(search_queries):
         print(f"Executing search query {i+1}: {query}")
         context = query_engine.query(query)
@@ -276,10 +275,7 @@ def generate_rag_response(user_query: str,
         full_response = llm.complete(prompt)
         final_answer = full_response.text
 
-
     return final_answer, combined_context, sources_summary, long_context
-
-
 
 
 def generate_vanilla_response(user_query: str,  
@@ -335,15 +331,6 @@ def generate_vanilla_response(user_query: str,
     return answer_text
 
 
-
-question = """A 27-year-old woman, primigravida, gave birth to a boy 3 months ago and now presents the newborn to your clinic for evaluation. 
-                She did not receive prenatal care. She reports that she was taking a medication for her mood swings, but cannot remember the medication’s name. 
-                The baby was born cyanotic, with a congenital malformation of the heart that is characterized by apical displacement of the septa and posterior 
-                tricuspid valve leaflets. A chest radiograph is shown in the image. What medications taken by the mother would have led to this condition?"""
-
-
-   
-
 def process_questions_from_file(file_path, 
                                provider_name,
                                model_name,
@@ -363,10 +350,11 @@ def process_questions_from_file(file_path,
     similarity_top_k = similarity_top_k
     sparse_top_k = sparse_top_k
     
-
+    # Determine input file type
+    input_extension = os.path.splitext(FILE_PATH)[1].lower()
 
     # Clean model name to use in filename by replacing slashes with underscores
-    # Because Together AI models contain slach in their names and it results in an error
+    # Because Together AI models contain slash in their names and it results in an error
     safe_model_name = model_name.replace('/', '_')
     base_name = os.path.basename(FILE_PATH)
     file_name_without_ext = os.path.splitext(base_name)[0]
@@ -387,7 +375,16 @@ def process_questions_from_file(file_path,
         
     else:
         print(f"Starting new processing on: {FILE_PATH}")
-        df = pd.read_csv(FILE_PATH)
+        # Read input file based on extension
+        if input_extension == '.json':
+            with open(FILE_PATH, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            df = pd.DataFrame(data)
+        elif input_extension == '.csv':
+            df = pd.read_csv(FILE_PATH)
+        else:
+            raise ValueError(f"Unsupported file format: {input_extension}. Only .csv and .json are supported.")
+        
         df['Model'] = MODEL
         df['Provider'] = PROVIDER
         df['Generated Vanilla Answer'] = None
@@ -490,22 +487,27 @@ def process_questions_from_file(file_path,
     print(f"Results saved to {OUTPUT_PATH}")
     return None
 
-# Example usage
-
-QUESTIONS_FILE = r"C:\\Users\\kuzne\\Documents\\Python_repo\\2025_01_dissertation\\2025_dissertation\\data\\2025-06 hybrid search\\psychiatry_test_dataset.csv"
 
 
-# Test the function with a sample file
-process_questions_from_file(file_path=QUESTIONS_FILE,
+# MAIN EXECUTION
+
+
+# EVALUATION OF TEST DATASET
+# top_k = 5
+# sparse_top_k = 10
+TRAIN_DATASET_FILE = r"experiments\\test_dataset.json"
+
+# LLAMA 4 SCOUT 
+process_questions_from_file(file_path=TRAIN_DATASET_FILE,
                             provider_name="together",
                             model_name="meta-llama/Llama-4-Scout-17B-16E-Instruct",
-                            similarity_top_k=2,
+                            similarity_top_k=5,
                             sparse_top_k=10,
                             response_synthesizer_mode="compact",
-                            batch_size=1,
-                            max_rows=5,
-                            timeout_interval=5,
-                            timeout_seconds=0,
+                            batch_size=10,
+                            max_rows=370,
+                            timeout_interval=1,
+                            timeout_seconds=5,
                             output_format='json') 
 
 
