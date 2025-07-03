@@ -3,7 +3,7 @@ import pandas as pd
 from llama_index.llms.google_genai import GoogleGenAI
 from ragas.llms import LlamaIndexLLMWrapper
 from ragas import evaluate
-from ragas.metrics import faithfulness, answer_correctness
+from ragas.metrics import answer_correctness
 from datasets import Dataset
 import time
 from llama_index.embeddings.google_genai import GoogleGenAIEmbedding
@@ -392,7 +392,7 @@ def run_interchangeable_evaluation(file_path, model_name="gemini-2.5-flash", cyc
     
     Parameters:
     - file_path: str
-        Path to the CSV file containing the dataset
+        Path to the JSON file containing the dataset
     - model_name: str
         Name of the model to use for evaluation
     - cycles: int
@@ -444,17 +444,11 @@ def run_interchangeable_evaluation(file_path, model_name="gemini-2.5-flash", cyc
     print("=" * 80)
 
 
-# 
-
-FILE_LLAMA_8B = r"C:\\Users\\kuzne\Documents\\Python_repo\\2025_01_dissertation\\2025_dissertation\data\\2025-06 hybrid search\\psychiatry_test_dataset_together_meta-llama_Llama-3.2-3B-Instruct-Turbo_answered.csv"
+# Example usage:
 
 # LLAMA 4 SCOUT
-
 LLAMA4_SCOUT = r"experiments\\test_dataset_together_meta-llama_Llama-4-Scout-17B-16E-Instruct_top5_answered.json"
 
-
-
-# Option 1: Use the same file path as defined in your script
 run_interchangeable_evaluation(
      file_path=LLAMA4_SCOUT,
      model_name="gemini-2.5-flash",
