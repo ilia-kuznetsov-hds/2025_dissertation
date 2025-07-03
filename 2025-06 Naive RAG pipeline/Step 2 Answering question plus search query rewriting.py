@@ -22,12 +22,13 @@ QUESTIONS_FILE_PATH = r"C:\\Users\\kuzne\\Documents\\Python_repo\\2025_01_disser
 # Define available models for each provider
 provider_models = {
     "together": ["deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free", #https://api.together.ai/models/deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free
-                 "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free"],  #https://api.together.ai/models/meta-llama/Llama-3.3-70B-Instruct-Turbo-Free
+                 "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free"],  #https://api.together.ai/models/meta-llama/Llama-3.3-70B-Instruct-Turbo-Free 8192 context window size
 
     "groq": ["llama-3.3-70b-versatile", # https://console.groq.com/docs/models
              "llama-3-8b-8192",
-             "gemma2-9b-it",
-             "allam-2-7b"], # 4096 context window size
+             "gemma2-9b-it", # 8192
+             "allam-2-7b", # 4096 context window size
+             "mistral-saba-24b"], # 32k
     "gemini": ["gemini-2.0-flash",
                "gemini-2.0-flash-lite"]
 }
@@ -67,18 +68,37 @@ def initialize_vector_store(database_path):
 
 def generate_rag_response(user_query, 
                           provider_name="together", 
-                          model_name="meta-llama/Llama-3.3-70B-Instruct-Turbo-Free"):
+                          model_name="meta-llama/Llama-3.3-70B-Instruct-Turbo-Free", 
+                          top_k = 3,
+                          context_window_size = 8192):
     """
     Generate a response using RAG-enhanced LLM
 
     Step 1: Query rewriting into effective search queries using LLM.
     https://arxiv.org/abs/2305.14283
 
+    Parameters:
+    - user_query: The original user question to be answered
+    - provider_name: Name of the LLM provider (e.g., "together", "groq", "gemini")
+    - model_name: Name of the LLM model to use. Name of the provider and model should be
+        in the provider_models dictionary (defined at the beginning of the script with other constants)
+    - top_k: Number of top contexts to retrieve from the vector store (default is 3). If a moel has a small context window, top_k will be replaced with 1.
+    - context_window_size: Size of the context window for the LLM (default is 8192)
+    
     Returns:
     - answer_text: The generated answer text from LLM provided with context
     - context: The context retrieved from the vector store and used to generate the answer
     """
     global index
+
+    # Determine top_k based on context window size
+    # Consider context window < 8192 tokens as small
+    top_k = top_k
+    is_small_context = False
+    if context_window_size < 8192:
+        top_k = 1
+        is_small_context = True
+    
 
     # Step 1: Query rewriting using the LLM 
     # I use Google Gemini for rewriting queries because it has the biggest free tier limits
@@ -118,6 +138,11 @@ def generate_rag_response(user_query,
                 source_texts.append(source_node.node.text)
     
     context = "\n\n".join(source_texts)
+
+    # Additional context truncation for very small context windows
+    if is_small_context and len(context) > 2000:  # Roughly 500-600 tokens
+        context = context[:2000] + "..."
+        print(f"Context truncated due to small context window ({context_window_size} tokens)")
     
     prompt = f"""
         You are a clinically informed mental health decision support system.
@@ -159,7 +184,7 @@ def generate_rag_response(user_query,
         full_response = llm.complete(prompt)
         answer_text = full_response.text
 
-    return answer_text, context
+    return answer_text, source_texts, top_k
 
 
 def generate_vanilla_response(user_query, 
@@ -214,10 +239,12 @@ def generate_vanilla_response(user_query,
 
 
 def process_questions_from_csv(file_path, 
-                               provider_name,
-                               model_name,
-                               batch_size: int, 
-                               max_rows: int,  
+                               provider_name= "together",
+                               model_name= "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
+                               top_k = 3,
+                               context_window_size = 8192,
+                               batch_size: int = 1, 
+                               max_rows: int = 10,  
                                timeout_interval = 1,
                                timeout_seconds = 10):
     """
@@ -248,6 +275,8 @@ def process_questions_from_csv(file_path,
     BATCH_SIZE = batch_size
     PROVIDER = provider_name
     MODEL = model_name
+    TOP_K = top_k
+    CONTEXT_WINDOW_SIZE = context_window_size
 
     # Clean model name to use in filename by replacing slashes with underscores
     # Because Together AI models contain slach in their names and it results in an error
@@ -266,6 +295,7 @@ def process_questions_from_csv(file_path,
         df = pd.read_csv(FILE_PATH)
         df['Model'] = MODEL
         df['Provider'] = PROVIDER
+        df['Context Window Size'] = CONTEXT_WINDOW_SIZE
         df['Generated Vanilla Answer'] = None
         df['Generated RAG Answer'] = None
         df['Retrieved Context'] = None
@@ -285,38 +315,86 @@ def process_questions_from_csv(file_path,
          # Skip if empty question
         if pd.isna(user_query) or str(user_query).strip() == '':
             df.loc[idx, 'Generated Vanilla Answer'] = "invalid"
+            df.loc[idx, 'Status'] = "error"
             # Skip to the next iteration
             print(f"Skipping empty question at row {idx}")
             continue
         
-        # Generate non-RAG response
-        vanilla_response = generate_vanilla_response(user_query,
-                                                    provider_name=PROVIDER, 
-                                                    model_name=MODEL)
-        # Add a timeout between vanilla and RAG response generation to avoid rate limits
-        time.sleep(timeout_seconds)
+        try:
+            # Generate non-RAG response
+            vanilla_response = generate_vanilla_response(user_query,
+                                                        provider_name=PROVIDER, 
+                                                        model_name=MODEL)
+            # Add a timeout between vanilla and RAG response generation to avoid rate limits
+            time.sleep(timeout_seconds)
+                
+            # Handle API errors
+            if vanilla_response is None:
+                print(f"Error encountered. Saving progress and exiting.")
+                df.to_csv(OUTPUT_PATH, index=False)
+                return
             
-        # Handle API errors
-        if vanilla_response is None:
-            print(f"Error encountered. Saving progress and exiting.")
-            df.to_csv(OUTPUT_PATH, index=False)
-            return
+            # I cannot log the top k number without assigning it to the variable
+            # because it is a way to handle the models with small context window size
+            # See the generate_rag_response function for details
+            rag_response, context, top_k_number = generate_rag_response(user_query,
+                                                    provider_name=PROVIDER, 
+                                                    model_name=MODEL,
+                                                    top_k=TOP_K,
+                                                    context_window_size=CONTEXT_WINDOW_SIZE)
         
-        rag_response, context = generate_rag_response(user_query,
-                                                provider_name=PROVIDER, 
-                                                model_name=MODEL)
-      
-         # Handle API errors
-        if rag_response is None:
-            print(f"Error encountered. Saving progress and exiting.")
-            df.to_csv(OUTPUT_PATH, index=False)
-            return
+            # Handle API errors
+            if rag_response is None:
+                print(f"Error encountered. Saving progress and exiting.")
+                df.to_csv(OUTPUT_PATH, index=False)
+                return
 
-        # Update the dataframe
-        df.loc[idx, 'Generated Vanilla Answer'] = vanilla_response
-        df.loc[idx, 'Generated RAG Answer'] = rag_response
-        df.loc[idx, 'Retrieved Context'] = context
-        print(f"Processed {i+1}/{total_rows}: Row {idx} - Vanilla Answer: {vanilla_response[:50]}...")
+            # Update the dataframe
+            df.loc[idx, 'Generated Vanilla Answer'] = vanilla_response
+            df.loc[idx, 'Generated RAG Answer'] = rag_response
+            df.loc[idx, 'Top K'] = top_k_number
+            df.loc[idx, 'Retrieved Context'] = context
+            df.loc[idx, 'Status'] = "completed"
+            print(f"Processed {i+1}/{total_rows}: Row {idx} - Vanilla Answer: {vanilla_response[:50]}...")
+
+        except Exception as e:
+            error_message = str(e)
+            print(f"Error at row {idx}: {error_message}")
+            
+            # Check for rate limit errors - these should stop execution
+            rate_limit_indicators = [
+                "rate_limit_exceeded",
+                "rate limit reached", 
+                "429", # Groq API error code for rate limit
+                "quota exceeded",
+                "too many requests"
+            ]
+
+            if any(indicator in error_message.lower() for indicator in rate_limit_indicators):
+                print("RATE LIMIT DETECTED - Stopping execution to avoid further issues...")
+
+                # Mark current row with rate limit error
+                df.loc[idx, 'Generated Vanilla Answer'] = "rate_limit_error"
+                df.loc[idx, 'Generated RAG Answer'] = "rate_limit_error"
+                df.loc[idx, 'Top K'] = "rate_limit_error"
+                df.loc[idx, 'Retrieved Context'] = "rate_limit_error"
+                df.loc[idx, 'Status'] = "rate_limit_error"
+                
+                # Save progress and exit
+                df.to_csv(OUTPUT_PATH, index=False)
+                print(f"Progress saved to {OUTPUT_PATH}")
+                print(f"Processed {i} rows before hitting rate limit")
+                print("Wait for rate limit reset, then run again to continue")
+                return  # Exit the function
+
+            else:
+                # For all other errors, mark the row and continue processing
+                df.loc[idx, 'Generated Vanilla Answer'] = "error"
+                df.loc[idx, 'Generated RAG Answer'] = "error"
+                df.loc[idx, 'Top K'] = "error"
+                df.loc[idx, 'Retrieved Context'] = "error"
+                df.loc[idx, 'Status'] = "error"
+                print(f"Non-critical error at row {idx}: {e}  - continuing with next row")
 
         # Save after each batch
         if (i + 1) % BATCH_SIZE == 0:
@@ -341,29 +419,11 @@ Main function run
 vector_store, storage_context, index = initialize_vector_store(DATABASE_PATH)
 
 # Test run for Gemini model
-'''
-process_questions_from_csv(QUESTIONS_FILE_PATH, 
-                           provider_name='gemini',
-                           model_name='gemini-2.0-flash',
-                           batch_size = 1, 
-                           max_rows=1)
-'''
-
-
-'''
-# Test run for Together AI
-process_questions_from_csv(QUESTIONS_FILE_PATH,
-                           provider_name='groq',
-                           model_name="llama3-8b-8192", # "llama-3.3-70b-versatile", # "llama-3-8b-8192", # "gemma2-9b-it",
-                           batch_size = 1, 
-                           max_rows=400) 
-
-
-'''
 
 process_questions_from_csv(QUESTIONS_FILE_PATH,
                            provider_name='together',
                             model_name="meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
-                            batch_size= 1,
-                            max_rows=200)  # "deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free", # "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free", # "llama-3.3-70b-versatile", # "llama-3-8b-8192", # "gemma2-9b-it",
+                            batch_size= 5,
+                            max_rows=200,
+                            )  # "deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free", # "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free", # "llama-3.3-70b-versatile", # "llama-3-8b-8192", # "gemma2-9b-it",
                               # "deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free", 
