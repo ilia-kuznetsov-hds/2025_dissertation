@@ -32,8 +32,6 @@ def setup_ragas_evaluator(model_name="models/text-embedding-004"):
     return embeddings_wrapper
 
 
-file_path = 'experiments/test_dataset_together_meta-llama_Llama-4-Scout-17B-16E-Instruct_top5_answered.json'
-
 def calculate_answer_similarity_vanilla(file_path, model_name="models/text-embedding-004", max_rows=20, batch_size=1, timeout_seconds=10):
     '''
     Calculate answer similarity for vanilla answers in the dataset.
@@ -226,6 +224,9 @@ def calculate_answer_similarity_rag(file_path, model_name="models/text-embedding
 
 
 # Function call for RAG evaluation
+
+file_path = 'experiments/test_dataset_together_meta-llama_Llama-4-Scout-17B-16E-Instruct_top5_answered.json'
+
 calculate_answer_similarity_rag(
     file_path=file_path,
     model_name="models/text-embedding-004",
@@ -233,3 +234,4 @@ calculate_answer_similarity_rag(
     batch_size=10,
     timeout_seconds=0
 )
+

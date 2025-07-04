@@ -457,3 +457,5 @@ run_interchangeable_evaluation(
      timeout_seconds=0)
 
 
+# Do not use this code with Geminin 2.5 flash model, it is too slow and expensive. 
+# Use Gemini 2.0 flash model instead.
