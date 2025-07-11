@@ -178,12 +178,15 @@ def calculate_answer_similarity_rag(file_path, model_name="models/text-embedding
                     'ground_truth': [ground_truth]
             }
 
-            dataset = Dataset.from_dict(data_samples)
+            # Why can't we just create a Dataset directly from the DataFrame?
+            # Because RAGAS evaluate expects a Dataset or EvaluationDataset as an input.
+            # If we define a Dataset before the loop, we cannot iterate over it since all rows will be processed in one run.
 
+            dataset = Dataset.from_dict(data_samples)
             score = evaluate(dataset,
                                 metrics=[answer_similarity], 
                                 embeddings=embedding_wrapper)
-            
+
             answer_similarity_score = score.to_pandas()
 
             # Extract the semantic similarity score
@@ -225,12 +228,20 @@ def calculate_answer_similarity_rag(file_path, model_name="models/text-embedding
 
 # Function call for RAG evaluation
 
-file_path = 'experiments/test_dataset_together_meta-llama_Llama-4-Scout-17B-16E-Instruct_top5_answered.json'
+file_path = 'experiments/qwen2.5_72b/test_dataset_together_Qwen_Qwen2.5-72B-Instruct-Turbo_top5_answered.json'
 
 calculate_answer_similarity_rag(
     file_path=file_path,
     model_name="models/text-embedding-004",
-    max_rows=366,
+    max_rows=370,
+    batch_size=10,
+    timeout_seconds=0
+)
+
+calculate_answer_similarity_vanilla(
+    file_path=file_path,    
+    model_name="models/text-embedding-004",
+    max_rows=370,
     batch_size=10,
     timeout_seconds=0
 )

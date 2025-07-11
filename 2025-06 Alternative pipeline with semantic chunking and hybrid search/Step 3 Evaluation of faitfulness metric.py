@@ -54,7 +54,10 @@ def setup_ragas_evaluator(model_name="gemini-2.0-flash"):
     # Create LlamaIndex GoogleGenAI instance
     gemini_llm = GoogleGenAI(
         model=model_name,
-        api_key=google_api_key
+        api_key=google_api_key,
+        temperature=0.0, # Set temperature to 0 for deterministic outputs
+        max_output_tokens=8192  # Maximum output tokens for Gemini models
+          
     )
 
     gemini_embeddings = GoogleGenAIEmbedding(
@@ -429,16 +432,33 @@ LLAMA_SCOUT = 'experiments/test_dataset_together_meta-llama_Llama-4-Scout-17B-16
 
 LLAMA_MAVERICK = 'experiments/test_dataset_together_meta-llama_Llama-4-Maverick-17B-128E-Instruct-FP8_top5_answered.json'
 
-
+'''
 calculate_vanilla_metric(LLAMA_MAVERICK,
                      model_name="gemini-2.0-flash", 
                     metric="answer_relevancy",
                     max_rows=2, batch_size=10, timeout_seconds=0)
 
-'''
+
 calculate_rag_metric(LLAMA_MAVERICK,
                      model_name="gemini-2.0-flash", 
                     metric="answer_relevancy",
-                    max_rows=359, batch_size=10, timeout_seconds=0)
+                    max_rows=2, batch_size=2, timeout_seconds=0)
 
-                    '''
+
+calculate_rag_metric(LLAMA_MAVERICK,
+                     model_name="gemini-2.0-flash", 
+                    metric="context_precision",
+                    max_rows=2, batch_size=2, timeout_seconds=0)
+'''
+
+file_path = 'experiments/qwen2.5_72b/test_dataset_together_Qwen_Qwen2.5-72B-Instruct-Turbo_top5_answered.json'
+
+calculate_rag_metric(file_path,
+                        model_name="gemini-2.0-flash", 
+                        metric="context_precision",
+                        max_rows=370, batch_size=2, timeout_seconds=0)
+
+calculate_vanilla_metric(file_path,
+                        model_name="gemini-2.0-flash",
+                        metric="answer_relevancy",
+                        max_rows=370, batch_size=2, timeout_seconds=0)

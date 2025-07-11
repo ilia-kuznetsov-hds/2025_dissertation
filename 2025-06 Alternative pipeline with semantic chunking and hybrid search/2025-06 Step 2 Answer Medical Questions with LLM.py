@@ -97,6 +97,7 @@ def generate_rag_response(user_query: str,
                           sparse_top_k=10,
                           provider_name="groq", 
                           model_name="llama-3.3-70b-versatile",
+                          max_output_tokens=8192,
                           response_synthesizer_mode="compact"):
     """
     Generate a response using RAG-enhanced LLM
@@ -155,7 +156,8 @@ def generate_rag_response(user_query: str,
             api_key=together_api_key,
             is_chat_model=True,
             is_function_calling_model=True,
-            temperature=0.1
+            temperature=0.0, # Set temperature to 0 for deterministic outputs
+            max_output_tokens=max_output_tokens  # Maximum output tokens for Together models 
         )
 
         messages=[ChatMessage(role = "user", content = rewrite_prompt)]
@@ -300,7 +302,7 @@ def generate_vanilla_response(user_query: str,
             • Ensure your response is precise, concise (no longer than 5-7 sentences), and directly addresses the user’s question.
 
         USER QUESTION: {user_query}
-        Please think step-by-step and output your response precise and concise (no longer than 5-7 sentences)
+        Please think step-by-step and output your response precisely and concisely (no longer than 5-7 sentences)
         """
     if provider_name.lower() == "together":
         llm = TogetherLLM(
@@ -309,7 +311,7 @@ def generate_vanilla_response(user_query: str,
             api_key=together_api_key,
             is_chat_model=True,
             is_function_calling_model=True,
-            temperature=0.1
+            temperature=0.0  # Set temperature to 0 for deterministic outputs
         )
         messages = [ChatMessage(role="user", content=prompt)]
         full_response = llm.chat(messages)
@@ -498,6 +500,12 @@ def process_questions_from_file(file_path,
 TRAIN_DATASET_FILE = r"experiments\\test_dataset.json"
 
 # LLAMA 4 SCOUT 
+
+# LLAMA 4 MAVERICK
+
+# GEMMA 3N
+
+'''
 process_questions_from_file(file_path=TRAIN_DATASET_FILE,
                             provider_name="together",
                             model_name="meta-llama/Llama-4-Scout-17B-16E-Instruct",
@@ -510,4 +518,17 @@ process_questions_from_file(file_path=TRAIN_DATASET_FILE,
                             timeout_seconds=5,
                             output_format='json') 
 
+'''
+# google/gemma-3n-E4B-it
 
+process_questions_from_file(file_path=TRAIN_DATASET_FILE,
+                            provider_name="together", 
+                            model_name="yan/deepseek-ai-deepseek-v3",
+                            similarity_top_k=5, 
+                            sparse_top_k=10,
+                            response_synthesizer_mode="compact",    
+                            batch_size=10,
+                            max_rows=370,   
+                            timeout_interval=1,
+                            timeout_seconds=5,
+                            output_format='json')

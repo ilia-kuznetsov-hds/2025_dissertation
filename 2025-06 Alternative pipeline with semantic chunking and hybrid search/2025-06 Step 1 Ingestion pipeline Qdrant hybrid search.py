@@ -14,7 +14,7 @@ import hashlib
 
 # Configure global embedding model
 Settings.embed_model = HuggingFaceEmbedding(
-    model_name='sentence-transformers/all-mpnet-base-v2')
+    model_name='sentence-transformers/all-mpnet-base-v2') # By default, input text longer than 384 word pieces is truncated.
 
 
 '''
@@ -85,6 +85,7 @@ def create_semantic_nodes(filepath):
     splitter = SemanticSplitterNodeParser(buffer_size=3, 
                                           breakpoint_percentile_threshold=90, 
                                           embed_model=embed_model)
+    # https://github.com/run-llama/llama_index/blob/main/llama-index-core/llama_index/core/node_parser/text/semantic_splitter.py
 
     nodes = splitter.get_nodes_from_documents(document_clean)
 
