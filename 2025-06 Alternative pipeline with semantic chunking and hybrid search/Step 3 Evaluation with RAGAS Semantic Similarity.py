@@ -228,7 +228,7 @@ def calculate_answer_similarity_rag(file_path, model_name="models/text-embedding
 
 # Function call for RAG evaluation
 
-file_path = 'experiments/qwen2.5_72b/test_dataset_together_Qwen_Qwen2.5-72B-Instruct-Turbo_top5_answered.json'
+file_path = 'experiments/deepseekv3/test_dataset_together_yan_deepseek-ai-deepseek-v3_top5_answered.json'
 
 calculate_answer_similarity_rag(
     file_path=file_path,
