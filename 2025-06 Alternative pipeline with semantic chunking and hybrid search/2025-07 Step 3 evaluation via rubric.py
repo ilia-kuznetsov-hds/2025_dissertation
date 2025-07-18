@@ -104,7 +104,10 @@ def calculate_rubric_metric(file_path, model_name="gemini-2.0-flash",
     rows = df[(df['Generated Vanilla Answer'].notna()) & 
                     (df["Vanilla Rubric Score"].isna())]
     
-
+    # Track statistics
+    skipped_rows = 0
+    evaluated_rows = 0
+    error_rows = 0
     
     # Limit to max_rows
     rows_to_process = rows[:max_rows]
@@ -160,6 +163,7 @@ def calculate_rubric_metric(file_path, model_name="gemini-2.0-flash",
             print(f"Row{idx}: Vanilla Rubric Score:", vanilla_rubric_score)
             df.loc[idx, 'Vanilla Rubric Score'] = vanilla_rubric_score
             time.sleep(timeout_seconds)
+            evaluated_rows += 1
 
             # Save after each batch or when an error occurs
             if ((i + 1) % BATCH_SIZE == 0) or error_rows > 0:
@@ -183,19 +187,55 @@ def calculate_rubric_metric(file_path, model_name="gemini-2.0-flash",
         json.dump(data, f, indent=2, ensure_ascii=False)
     error_rows = 0  # Reset error counter after saving
 
+    # Report completion status
+    remaining = len(df[(df['Generated Vanilla Answer'].notna()) & 
+                      (df['Vanilla Rubric Score'].isna())])
+    if remaining > 0:
+        print(f'''Run complete! {total_rows} questions processed. {remaining} questions remain unevaluated.
+              Skipped {skipped_rows} rows due to context limit.
+              Evaluated {evaluated_rows} rows.''')
+    else:
+        print(f"All questions have been evaluated! Total: {len(df)} questions.")
 
 
-file_path = r'C:/Users/kuzne/Documents/Python_repo/2025_01_dissertation/2025_dissertation/experiments/gemma_3b/test_dataset_together_google_gemma-3n-E4B-it_top5_answered.json'
-calculate_rubric_metric(file_path=file_path, model_name="gemini-2.0-flash",
-                        max_rows=20, batch_size=1, timeout_seconds=0)
+# Main execution
 
+gemma_3b = r'C:/Users/kuzne/Documents/Python_repo/2025_01_dissertation/2025_dissertation/experiments/gemma_3b/test_dataset_together_google_gemma-3n-E4B-it_top5_answered.json'
+calculate_rubric_metric(file_path=gemma_3b, model_name="gemini-2.0-flash",
+                        max_rows=370, batch_size=10, timeout_seconds=0)
 
+llama4_maverick = r'C:/Users/kuzne/Documents/Python_repo/2025_01_dissertation/2025_dissertation/experiments/Llama4_maverick/test_dataset_together_meta-llama_Llama-4-Maverick-17B-128E-Instruct-FP8_top5_answered.json'
 
-    
+calculate_rubric_metric(file_path=llama4_maverick, model_name="gemini-2.0-flash",
+                        max_rows=370, batch_size=10, timeout_seconds=0)
 
+mistral_24b = r"C:/Users/kuzne/Documents/Python_repo/2025_01_dissertation/2025_dissertation/experiments/mistral24b/test_dataset_together_mistralai_Mistral-Small-24B-Instruct-2501_top5_answered.json"
+calculate_rubric_metric(file_path=mistral_24b, model_name="gemini-2.0-flash",
+                        max_rows=370, batch_size=10, timeout_seconds=0)
 
+qwen_25_72b = r"C:/Users/kuzne/Documents/Python_repo/2025_01_dissertation/2025_dissertation/experiments/qwen2.5_72b/test_dataset_together_Qwen_Qwen2.5-72B-Instruct-Turbo_top5_answered.json"
+calculate_rubric_metric(file_path=qwen_25_72b, model_name="gemini-2.0-flash",
+                        max_rows=370, batch_size=10, timeout_seconds=0)
 
+llama_scout = r"C:/Users/kuzne/Documents/Python_repo/2025_01_dissertation/2025_dissertation/experiments/Llama4_Scout/test_dataset_together_meta-llama_Llama-4-Scout-17B-16E-Instruct_top5_answered.json"
+calculate_rubric_metric(file_path=llama_scout, model_name="gemini-2.0-flash",
+                        max_rows=370, batch_size=10, timeout_seconds=0)
 
+deepseek_v3 = r"C:/Users/kuzne/Documents/Python_repo/2025_01_dissertation/2025_dissertation/experiments/deepseekv3/test_dataset_together_yan_deepseek-ai-deepseek-v3_top5_answered.json"
+calculate_rubric_metric(file_path=deepseek_v3, model_name="gemini-2.0-flash",
+                        max_rows=370, batch_size=10, timeout_seconds=0)
+
+llama_31_8b = r"C:/Users/kuzne/Documents/Python_repo/2025_01_dissertation/2025_dissertation/experiments/llama3.1_8b/test_dataset_together_meta-llama_Meta-Llama-3.1-8B-Instruct-Turbo_top5_answered.json"
+calculate_rubric_metric(file_path=llama_31_8b, model_name="gemini-2.0-flash",
+                        max_rows=370, batch_size=10, timeout_seconds=0)
+
+exaone_32b = r"C:/Users/kuzne/Documents/Python_repo/2025_01_dissertation/2025_dissertation/experiments/exaone_35_32b/test_dataset_together_lgai_exaone-3-5-32b-instruct_top5_answered.json"
+calculate_rubric_metric(file_path=exaone_32b, model_name="gemini-2.0-flash",
+                        max_rows=370, batch_size=10, timeout_seconds=0)
+
+qwen_3_235b = r"C:/Users/kuzne/Documents/Python_repo/2025_01_dissertation/2025_dissertation/experiments/qwen_3_235b/test_dataset_together_Qwen_Qwen3-235B-A22B-fp8-tput_top5_answered.json"
+calculate_rubric_metric(file_path=qwen_3_235b, model_name="gemini-2.0-flash",
+                        max_rows=370, batch_size=10, timeout_seconds=0)
 
 
 '''

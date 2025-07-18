@@ -228,21 +228,9 @@ def calculate_answer_similarity_rag(file_path, model_name="models/text-embedding
 
 # Function call for RAG evaluation
 
-file_path = 'experiments/deepseekv3/test_dataset_together_yan_deepseek-ai-deepseek-v3_top5_answered.json'
+llama_3b = r"C:/Users/kuzne/Documents/Python_repo/2025_01_dissertation/2025_dissertation/experiments/advanced_rag/Llama_3.2_3B/test_dataset_together_meta-llama_Llama-3.2-3B-Instruct-Turbo_top5_answered.json"
 
-calculate_answer_similarity_rag(
-    file_path=file_path,
-    model_name="models/text-embedding-004",
-    max_rows=370,
-    batch_size=10,
-    timeout_seconds=0
-)
 
-calculate_answer_similarity_vanilla(
-    file_path=file_path,    
-    model_name="models/text-embedding-004",
-    max_rows=370,
-    batch_size=10,
-    timeout_seconds=0
-)
+calculate_answer_similarity_vanilla(llama_3b, model_name="models/text-embedding-004", max_rows=370, batch_size=1, timeout_seconds=10)
 
+calculate_answer_similarity_rag(llama_3b, model_name="models/text-embedding-004", max_rows=370, batch_size=1, timeout_seconds=10)

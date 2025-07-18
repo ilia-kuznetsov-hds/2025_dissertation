@@ -519,40 +519,17 @@ process_questions_from_file(file_path=TRAIN_DATASET_FILE,
                             output_format='json') 
 
 '''
-# google/gemma-3n-E4B-it
+
+
 
 process_questions_from_file(file_path=TRAIN_DATASET_FILE,
-                            provider_name="together", 
-                            model_name="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
-                            similarity_top_k=5, 
+                            provider_name="together",
+                            model_name="moonshotai/Kimi-K2-Instruct",
+                            similarity_top_k=5,     
                             sparse_top_k=10,
                             response_synthesizer_mode="compact",    
-                            batch_size=10,
-                            max_rows=370,   
-                            timeout_interval=1,
-                            timeout_seconds=5,
-                            output_format='json')
-
-process_questions_from_file(file_path=TRAIN_DATASET_FILE,
-                            provider_name="together", 
-                            model_name="Qwen/Qwen3-235B-A22B-fp8-tput",
-                            similarity_top_k=5, 
-                            sparse_top_k=10,
-                            response_synthesizer_mode="compact",    
-                            batch_size=10,
-                            max_rows=370,   
-                            timeout_interval=1,
-                            timeout_seconds=5,
-                            output_format='json')
-
-process_questions_from_file(file_path=TRAIN_DATASET_FILE,
-                            provider_name="together",   
-                            model_name="lgai/exaone-3-5-32b-instruct",
-                            similarity_top_k=5,                     
-                            sparse_top_k=10,
-                            response_synthesizer_mode="compact",
                             batch_size=10,
                             max_rows=370,
                             timeout_interval=1,
-                            timeout_seconds=5,  
+                            timeout_seconds=5,
                             output_format='json')

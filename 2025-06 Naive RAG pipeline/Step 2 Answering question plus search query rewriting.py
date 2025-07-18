@@ -162,7 +162,7 @@ def generate_rag_response(user_query,
             api_key=together_api_key,
             is_chat_model=True,
             is_function_calling_model=True,
-            temperature=0.1
+            temperature=0.0
         )
 
         messages=[ChatMessage(role = "user", content = prompt)]
@@ -213,7 +213,7 @@ def generate_vanilla_response(user_query,
             api_key=together_api_key,
             is_chat_model=True,
             is_function_calling_model=True,
-            temperature=0.1
+            temperature=0.0
         )
         messages = [ChatMessage(role="user", content=prompt)]
         # chat() is the method that sends messages to LLM and receives the reponses

@@ -66,3 +66,6 @@ experiments/test_dataset_together_meta-llama_Llama-4-Maverick-17B-128E-Instruct-
 experiments/test_dataset_together_meta-llama_Llama-4-Maverick-17B-128E-Instruct-FP8_top5_answered_rag_answer_similarity_evaluated.json
 experiments/test_dataset_together_meta-llama_Llama-4-Maverick-17B-128E-Instruct-FP8_top5_answered_vanilla_answer_similarity_evaluated.json
 experiments/test_dataset_together_meta-llama_Llama-4-Maverick-17B-128E-Instruct-FP8_top5_answered.json
+experiments/Results_with_CIs.ipynb
+experiments/combine_results.ipynb
+lookup_anwers.ipynb

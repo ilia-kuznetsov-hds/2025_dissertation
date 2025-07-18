@@ -8,6 +8,7 @@ from ragas import evaluate
 from datasets import Dataset
 import time
 from ragas.metrics import answer_relevancy, faithfulness, context_precision
+
 import json
 import ast
 
@@ -340,7 +341,6 @@ def calculate_vanilla_metric(file_path, model_name="gemini-2.0-flash", metric:st
         try:
             question = df.loc[idx, 'Modified Questions']
             answer = df.loc[idx, 'Generated Vanilla Answer']
-            context_string = df.loc[idx, 'Retrieved Context']
             ground_truth = df.loc[idx, 'Reasonings']
                
             # Count tokens for each component
