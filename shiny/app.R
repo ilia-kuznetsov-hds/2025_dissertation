@@ -3,7 +3,7 @@ library(jsonlite)
 library(shinythemes)
 
 # Path to your JSON file
-json_path <- "Meta Llama 4 Maverick 17B-128E-Instruct-FP8.json"  # Change as needed
+json_path <- "Meta Llama 4 Maverick 17B-128E-Instruct-FP8.json" 
 
 ui <- fluidPage(
   titlePanel("Question Answer App"),
