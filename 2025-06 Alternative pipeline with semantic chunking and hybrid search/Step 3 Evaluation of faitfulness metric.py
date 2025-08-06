@@ -7,7 +7,7 @@ from ragas.embeddings import LlamaIndexEmbeddingsWrapper
 from ragas import evaluate
 from datasets import Dataset
 import time
-from ragas.metrics import answer_relevancy, faithfulness, context_precision
+from ragas.metrics import answer_relevancy, faithfulness, context_precision, context_recall
 
 import json
 import ast
@@ -96,7 +96,8 @@ def calculate_rag_metric(file_path, model_name="gemini-2.0-flash", metric:str= "
     metric_mapping = {
         "answer_relevancy": answer_relevancy,
         "faithfulness": faithfulness,
-        "context_precision": context_precision
+        "context_precision": context_precision,
+        "context_recall": context_recall
     }
     
     if metric not in metric_mapping:
@@ -427,38 +428,24 @@ def calculate_vanilla_metric(file_path, model_name="gemini-2.0-flash", metric:st
 
 
 
-# RESULTS FILES
-LLAMA_SCOUT = 'experiments/test_dataset_together_meta-llama_Llama-4-Scout-17B-16E-Instruct_top5_answered.json'
+kimi_k2 = "experiments/advanced_rag/Kimi 2/test_dataset_together_moonshotai_Kimi-K2-Instruct_top5_answered.json"
 
-LLAMA_MAVERICK = 'experiments/test_dataset_together_meta-llama_Llama-4-Maverick-17B-128E-Instruct-FP8_top5_answered.json'
+calculate_rag_metric(kimi_k2, model_name="gemini-2.0-flash", metric="answer_relevancy", max_rows=370, batch_size=10, timeout_seconds=0)
+calculate_vanilla_metric(kimi_k2, model_name="gemini-2.0-flash", metric="answer_relevancy", max_rows=370, batch_size=10, timeout_seconds=0)
+calculate_rag_metric(kimi_k2, model_name="gemini-2.0-flash", metric="faithfulness", max_rows=370, batch_size=10, timeout_seconds=0)
+calculate_rag_metric(kimi_k2, model_name="gemini-2.0-flash", metric="context_precision", max_rows=370, batch_size=10, timeout_seconds=0)
+calculate_rag_metric(kimi_k2, model_name="gemini-2.0-flash", metric="context_recall", max_rows=370, batch_size=10, timeout_seconds=0)
 
-'''
-calculate_vanilla_metric(LLAMA_MAVERICK,
-                     model_name="gemini-2.0-flash", 
-                    metric="answer_relevancy",
-                    max_rows=2, batch_size=10, timeout_seconds=0)
+llama8b = "experiments/naive_rag/Llama 3.1 8B/test_dataset_together_meta-llama_Meta-Llama-3.1-8B-Instruct-Turbo_top3_answered.json"
+calculate_rag_metric(llama8b, model_name="gemini-2.0-flash", metric="answer_relevancy", max_rows=370, batch_size=10, timeout_seconds=0)
+calculate_vanilla_metric(llama8b, model_name="gemini-2.0-flash", metric="answer_relevancy", max_rows=370, batch_size=10, timeout_seconds=0)
+calculate_rag_metric(llama8b, model_name="gemini-2.0-flash", metric="faithfulness", max_rows=370, batch_size=10, timeout_seconds=0)
+calculate_rag_metric(llama8b, model_name="gemini-2.0-flash", metric="context_precision", max_rows=370, batch_size=10, timeout_seconds=0)        
+calculate_rag_metric(llama8b, model_name="gemini-2.0-flash", metric="context_recall", max_rows=370, batch_size=10, timeout_seconds=0)
 
-
-calculate_rag_metric(LLAMA_MAVERICK,
-                     model_name="gemini-2.0-flash", 
-                    metric="answer_relevancy",
-                    max_rows=2, batch_size=2, timeout_seconds=0)
-
-
-calculate_rag_metric(LLAMA_MAVERICK,
-                     model_name="gemini-2.0-flash", 
-                    metric="context_precision",
-                    max_rows=2, batch_size=2, timeout_seconds=0)
-'''
-
-file_path = 'experiments/qwen2.5_72b/test_dataset_together_Qwen_Qwen2.5-72B-Instruct-Turbo_top5_answered.json'
-
-calculate_rag_metric(file_path,
-                        model_name="gemini-2.0-flash", 
-                        metric="context_precision",
-                        max_rows=370, batch_size=2, timeout_seconds=0)
-
-calculate_vanilla_metric(file_path,
-                        model_name="gemini-2.0-flash",
-                        metric="answer_relevancy",
-                        max_rows=370, batch_size=2, timeout_seconds=0)
+llama_3b = "experiments/naive_rag/Llama 3.2 2B/test_dataset_together_meta-llama_Llama-3.2-3B-Instruct-Turbo_top3_answered.json"
+calculate_rag_metric(llama_3b, model_name="gemini-2.0-flash", metric="answer_relevancy", max_rows=370, batch_size=10, timeout_seconds=0)
+calculate_vanilla_metric(llama_3b, model_name="gemini-2.0-flash", metric="answer_relevancy", max_rows=370, batch_size=10, timeout_seconds=0)
+calculate_rag_metric(llama_3b, model_name="gemini-2.0-flash", metric="faithfulness", max_rows=370, batch_size=10, timeout_seconds=0)
+calculate_rag_metric(llama_3b, model_name="gemini-2.0-flash", metric="context_precision", max_rows=370, batch_size=10, timeout_seconds=0)
+calculate_rag_metric(llama_3b, model_name="gemini-2.0-flash", metric="context_recall", max_rows=370, batch_size=10, timeout_seconds=0)

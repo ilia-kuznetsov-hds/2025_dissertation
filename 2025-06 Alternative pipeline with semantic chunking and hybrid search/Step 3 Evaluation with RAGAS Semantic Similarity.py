@@ -129,7 +129,7 @@ def calculate_answer_similarity_vanilla(file_path, model_name="models/text-embed
 
 
 
-def calculate_answer_similarity_rag(file_path, model_name="models/text-embedding-004", max_rows=20, batch_size=1, timeout_seconds=10):
+def calculate_answer_similarity_rag(file_path, model_name="models/text-embedding-004", max_rows=20, batch_size=1, timeout_seconds=0):
     '''
     Calculate answer similarity for RAG answers in the dataset.
     '''
@@ -228,9 +228,38 @@ def calculate_answer_similarity_rag(file_path, model_name="models/text-embedding
 
 # Function call for RAG evaluation
 
-llama_3b = r"C:/Users/kuzne/Documents/Python_repo/2025_01_dissertation/2025_dissertation/experiments/advanced_rag/Llama_3.2_3B/test_dataset_together_meta-llama_Llama-3.2-3B-Instruct-Turbo_top5_answered.json"
+llama_3b = "experiments/naive_rag/Llama 3.2 2B/test_dataset_together_meta-llama_Llama-3.2-3B-Instruct-Turbo_top3_answered.json"
 
 
-calculate_answer_similarity_vanilla(llama_3b, model_name="models/text-embedding-004", max_rows=370, batch_size=1, timeout_seconds=10)
+calculate_answer_similarity_vanilla(llama_3b, model_name="models/text-embedding-004", max_rows=370, batch_size=10, timeout_seconds=0)
 
-calculate_answer_similarity_rag(llama_3b, model_name="models/text-embedding-004", max_rows=370, batch_size=1, timeout_seconds=10)
+calculate_answer_similarity_rag(llama_3b, model_name="models/text-embedding-004", max_rows=370, batch_size=10, timeout_seconds=0)
+
+
+MISTRAL = 'experiments/naive_rag/Mistral_24B/test_dataset_together_mistralai_Mistral-Small-24B-Instruct-2501_top3_answered.json'
+
+calculate_answer_similarity_vanilla(MISTRAL, model_name="models/text-embedding-004", max_rows=370, batch_size=10, timeout_seconds=0)
+
+calculate_answer_similarity_rag(MISTRAL, model_name="models/text-embedding-004", max_rows=370, batch_size=10, timeout_seconds=0)
+
+
+QWEN_3 = "experiments/naive_rag/Qwen_3_275B/test_dataset_together_Qwen_Qwen3-235B-A22B-fp8-tput_top3_answered.json"
+
+calculate_answer_similarity_vanilla(QWEN_3, model_name="models/text-embedding-004", max_rows=370, batch_size=10, timeout_seconds=0)
+calculate_answer_similarity_rag(QWEN_3, model_name="models/text-embedding-004", max_rows=370, batch_size=10, timeout_seconds=0)
+
+QWEN_2 = "experiments/naive_rag/Qwen_3_275B/test_dataset_together_Qwen_Qwen3-235B-A22B-fp8-tput_top3_answered.json"
+
+calculate_answer_similarity_vanilla(QWEN_2, model_name="models/text-embedding-004", max_rows=370, batch_size=10, timeout_seconds=0)
+calculate_answer_similarity_rag(QWEN_2, model_name="models/text-embedding-004", max_rows=370, batch_size=10, timeout_seconds=0)
+
+kimi_2 = "experiments/advanced_rag/Kimi K2/test_dataset_together_moonshotai_Kimi-K2-Instruct_top5_answered.json"
+
+calculate_answer_similarity_vanilla(kimi_2, model_name="models/text-embedding-004", max_rows=370, batch_size=10, timeout_seconds=0)
+calculate_answer_similarity_rag(kimi_2, model_name="models/text-embedding-004", max_rows=370, batch_size=10, timeout_seconds=0)
+
+gemma_3n = "experiments/naive_rag/Gemma 3n/test_dataset_together_google_gemma-3n-E4B-it_top3_answered.json"
+calculate_answer_similarity_vanilla(gemma_3n, model_name="models/text-embedding-004", max_rows=370, batch_size=10, timeout_seconds=0)
+calculate_answer_similarity_rag(gemma_3n, model_name="models/text-embedding-004", max_rows=370, batch_size=10, timeout_seconds=0)
+
+
