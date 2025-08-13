@@ -1,15 +1,17 @@
 library(shiny)
-library(jsonlite)
 library(shinythemes)
 
-# Path to your JSON file
-json_path <- "Meta Llama 4 Maverick 17B-128E-Instruct-FP8.json" 
+rsconnect::writeManifest()
+
+# Path to your CSV file
+csv_path <- "random_questions_by_category.csv"  # Change as needed
 
 ui <- fluidPage(
   titlePanel("Question Answer App"),
   tabsetPanel(
     tabPanel(
       "Question Comparator",
+      uiOutput("model_selector"),
       uiOutput("category_selector"),
       actionButton("randomize", "Show Random Question"),
       br(), br(),
@@ -25,56 +27,70 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   # Load data once at startup
-  all_data <- fromJSON(json_path)
-  if (is.list(all_data) && !is.data.frame(all_data)) all_data <- as.data.frame(all_data)
+  all_data <- read.csv(csv_path, stringsAsFactors = FALSE)
+  if (!is.data.frame(all_data)) {
+    stop("CSV did not load as a data.frame. Check the file path and format.")
+  }
   
-  # DYNAMIC SELECTOR UI
-  output$category_selector <- renderUI({
-    selectInput("selected_category", "Select Psychiatric Category:",
-                choices = unique(all_data$psychiatric_category),
-                selected = unique(all_data$psychiatric_category)[1]
+  num <- function(x) suppressWarnings(as.numeric(x))
+  
+  # MODEL SELECTOR
+  output$model_selector <- renderUI({
+    models <- unique(na.omit(all_data$model_name))
+    selectInput(
+      "selected_model",
+      "Select Model:",
+      choices = models,
+      selected = if (length(models)) models[1] else NULL
     )
   })
   
-  # FILTERED DATA BASED ON SELECTED CATEGORY
-  filtered_data <- reactive({
-    req(input$selected_category)
-    subset(all_data, psychiatric_category == input$selected_category)
+  # CATEGORY SELECTOR (depends on model)
+  output$category_selector <- renderUI({
+    req(input$selected_model)
+    cats <- unique(na.omit(all_data$category[all_data$model_name == input$selected_model]))
+    if (length(cats) == 0) cats <- unique(na.omit(all_data$category))
+    selectInput(
+      "selected_category",
+      "Select Psychiatric Category:",
+      choices = cats,
+      selected = if (length(cats)) cats[1] else NULL
+    )
   })
   
-  # INITIALLY SELECT RANDOM ROW FROM FILTERED DATA
+  # FILTER
+  filtered_data <- reactive({
+    req(input$selected_model, input$selected_category)
+    subset(all_data, model_name == input$selected_model & category == input$selected_category)
+  })
+  
   selected_index <- reactiveVal(1)
   observeEvent(filtered_data(), {
-    if(nrow(filtered_data()) > 0)
-      selected_index(sample(nrow(filtered_data()), 1))
-    else
-      selected_index(NA)
+    dat <- filtered_data()
+    if (nrow(dat) > 0) selected_index(sample(nrow(dat), 1)) else selected_index(NA_integer_)
   })
   
   observeEvent(input$randomize, {
-    if(nrow(filtered_data()) > 0)
-      selected_index(sample(nrow(filtered_data()), 1))
-    else
-      selected_index(NA)
+    dat <- filtered_data()
+    if (nrow(dat) > 0) selected_index(sample(nrow(dat), 1)) else selected_index(NA_integer_)
   })
   
   output$qa_ui <- renderUI({
     i <- selected_index()
     dat <- filtered_data()
-    if (is.na(i) || nrow(dat) == 0) return(h4("No questions in this category."))
-    dat <- dat[i, ]
+    if (is.na(i) || nrow(dat) == 0) return(h4("No questions matching this model & category."))
+    dat <- dat[i, , drop = FALSE]
     
-    # Calculate mean relevancy scores
     mean_vanilla_relevancy <- mean(c(
-      dat$`answer_relevancy for Vanilla run 1`,
-      dat$`answer_relevancy for Vanilla run 2`,
-      dat$`answer_relevancy for Vanilla run 3`
+      num(dat$answer_relevancy_vanilla_run_1),
+      num(dat$answer_relevancy_vanilla_run_2),
+      num(dat$answer_relevancy_vanilla_run_3)
     ), na.rm = TRUE)
     
     mean_rag_relevancy <- mean(c(
-      dat$`answer_relevancy for RAG run 1`,
-      dat$`answer_relevancy for RAG run 2`,
-      dat$`answer_relevancy for RAG run 3`
+      num(dat$answer_relevancy_rag_run_1),
+      num(dat$answer_relevancy_rag_run_2),
+      num(dat$answer_relevancy_rag_run_3)
     ), na.rm = TRUE)
     
     tagList(
@@ -82,25 +98,29 @@ server <- function(input, output, session) {
         column(
           width = 12,
           h4(strong("Question:")),
-          h5(dat$`Modified Question`)
+          h5(dat$question)
         ),
         column(
           width = 12,
           h4(strong("Reference Answer:")),
-          h5(dat$Reasonings)
+          h5(dat$ground_truth)
         ),
         column(
           width = 6,
           wellPanel(
             h4("Generated Vanilla Answer"),
-            dat$`Generated Vanilla Answer`
+            dat$vanilla_answer
           )
         ),
         column(
           width = 6,
           wellPanel(
             h4("Generated RAG Answer"),
-            dat$`Generated RAG Answer`
+            dat$rag_answer,
+            br(),
+            tags$hr(),
+            h5(strong("Retrieved Context:")),
+            dat$rag_context
           )
         )
       ),
@@ -110,32 +130,29 @@ server <- function(input, output, session) {
           width = 6,
           wellPanel(
             h4("Metrics: Vanilla"),
-            p(strong("Semantic Similarity:"), round(dat$`Answer Semantic Similarity for vanilla`, 2)),
-            p(strong("Rubric Score:"), round(dat$`Vanilla Rubric Score`, 2)),
+            p(strong("Semantic Similarity:"), round(num(dat$vanilla_semantic_similarity), 2)),
+            p(strong("Rubric Score:"), round(num(dat$vanilla_rubric_score), 2)),
             p(strong("Answer Relevancy (mean):"), round(mean_vanilla_relevancy, 2)),
-            p("Run 1:", round(dat$`answer_relevancy for Vanilla run 1`, 2)),
-            p("Run 2:", round(dat$`answer_relevancy for Vanilla run 2`, 2)),
-            p("Run 3:", round(dat$`answer_relevancy for Vanilla run 3`, 2))
+            p("Run 1:", round(num(dat$answer_relevancy_vanilla_run_1), 2)),
+            p("Run 2:", round(num(dat$answer_relevancy_vanilla_run_2), 2)),
+            p("Run 3:", round(num(dat$answer_relevancy_vanilla_run_3), 2))
           )
         ),
         column(
           width = 6,
           wellPanel(
             h4("Metrics: RAG"),
-            p(strong("Semantic Similarity:"), round(dat$`Answer Semantic Similarity for rag`, 2)),
-            p(strong("Rubric Score:"), round(dat$`RAG Rubric Score`, 2)),
+            p(strong("Semantic Similarity:"), round(num(dat$rag_semantic_similarity), 2)),
+            p(strong("Rubric Score:"), round(num(dat$rag_rubric_score), 2)),
             p(strong("Answer Relevancy (mean):"), round(mean_rag_relevancy, 2)),
-            p("Run 1:", round(dat$`answer_relevancy for RAG run 1`, 2)),
-            p("Run 2:", round(dat$`answer_relevancy for RAG run 2`, 2)),
-            p("Run 3:", round(dat$`answer_relevancy for RAG run 3`, 2))
+            p("Run 1:", round(num(dat$answer_relevancy_rag_run_1), 2)),
+            p("Run 2:", round(num(dat$answer_relevancy_rag_run_2), 2)),
+            p("Run 3:", round(num(dat$answer_relevancy_rag_run_3), 2))
           )
         )
       )
     )
   })
 }
-
-      
-
 
 shinyApp(ui, server)
