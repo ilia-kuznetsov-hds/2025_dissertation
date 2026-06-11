@@ -2,6 +2,6 @@
 *.json
 *.xlsx
 .venv/
-data/
+data/knowledge_base/
 chromadb/
 

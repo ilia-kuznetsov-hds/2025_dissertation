@@ -1,19 +1,23 @@
-from llama_index.llms.google_genai import GoogleGenAI
-import os
-import pandas as pd
-import time 
 import json
+import os
+import time
+from pathlib import Path
+
+import pandas as pd
+from llama_index.llms.google_genai import GoogleGenAI
 
 google_api_key = os.getenv("GOOGLE_API_KEY")
-dataset_path = r"C:\\Users\\kuzne\\Documents\\Python_repo\\2025_01_dissertation\\2025_dissertation\\data\\2025-05 08.05.25 dataset for classification\\MedQA_open_dataset_classified.xlsx"
+
+# Repository root
+REPO_ROOT = Path(__file__).resolve().parents[1]
+# Path to the MedQA-Open dataset after initial psychiatry screening
+DATASET_PATH = str(REPO_ROOT / "data" / "MedQA_open_dataset_classified.xlsx")
 
 
-
-def is_clinical_psychiatry_focused(question, model_name='gemini-2.5-flash'):
+def is_clinical_psychiatry_focused(question, model_name="gemini-3-flash-preview"):
     """
-    Evaluate if the question is truly focused on clinical psychiatry/mental health
-    and if the reasoning can be used to answer the question.
-    Returns JSON format with classification and reasoning.
+    This script performs a second-stage verification of 
+    psychiatry-related questions from the MedQA-Open dataset.
     """
     prompt = f"""
     Act as an experienced clinical psychiatrist and medical educator. 
@@ -153,7 +157,7 @@ def process_file_json(file_path, batch_size=10, max_rows=150, timeout_interval=2
             continue
             
         # Evaluate the question using is_clinical_psychiatry_focused
-        evaluation_result = is_clinical_psychiatry_focused(question, model_name='gemini-2.5-flash')
+        evaluation_result = is_clinical_psychiatry_focused(question, model_name="gemini-3-flash-preview")
         
         # Extract results from the returned dictionary
         df.loc[idx, 'psychiatry_classification'] = evaluation_result.get('classification', 'error')
@@ -208,7 +212,7 @@ def process_file_json(file_path, batch_size=10, max_rows=150, timeout_interval=2
     return 
 
 # Usage example:
-process_file_json(dataset_path, 
+process_file_json(DATASET_PATH, 
                     batch_size=20, 
                     max_rows=1000, 
                     timeout_interval=20, 

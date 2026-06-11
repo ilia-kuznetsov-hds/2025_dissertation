@@ -1,26 +1,28 @@
-from google import genai
+"""Screen MedQA-Open records with Gemini and label each question as psychiatry or non-psychiatry."""
+
 import os
+import time
+from pathlib import Path
+
 import pandas as pd
-import time 
+from google import genai
 
 google_api_key = os.getenv("GOOGLE_API_KEY")
 client = genai.Client(api_key=google_api_key)
 
-dataset_path = "C:\\Users\\kuzne\\Documents\\Python_repo\\2025_01_dissertation\\2025_dissertation\data\\2025-05 08.05.25 dataset for classification\\MedQA_open_dataset.xlsx"
+# Repository root
+REPO_ROOT = Path(__file__).resolve().parents[1]
+# Path to the original MedQA-Open dataset file
+DATASET_PATH = str(
+    REPO_ROOT
+    / "data"
+    / "MedQA_open_dataset.xlsx"
+)
 
 '''
 We use MedQA-Open dataset from the paper "Few shot chain-of-thought driven reasoning to prompt LLMs for open ended medical question answering"
 The dataset available at (ancillary files setion):
 https://arxiv.org/abs/2403.04890
-
-The author of the paper used the USMLE-MedQA dataset (Jin et al., 2021), a medical exam dataset that consists of questions 
-sourced from professional medical board exams in the USA.
-
-
-The authors used the MedQA dataset (Zhang et al., 2018) is a publicly available collection of complex medical questions
-with multiple choices based on the United States medical license exams. To emulate real-world medical scenarios, 
-they convert these multiple-choice questions into open-ended questions by (1) removing the multiple-choice options and 
-(2) re-pharsing the question to be open-ended using LLM, creating MedQA-Open. 
 
 The dataset contains around 9000 questions related to different medical fields, including psychiatry. 
 The following script uses LLM to classify questions as psychiatry-related or not psychiatry-related.
@@ -41,7 +43,7 @@ def classify_question(question, answer):
     
     try:
         response = client.models.generate_content(
-            model="gemini-2.0-flash", contents=prompt
+            model="gemini-3-flash-preview", contents=prompt
         )
         result = response.text.strip().lower()
         
@@ -49,6 +51,7 @@ def classify_question(question, answer):
         if "psychiatry" in result and not ("non-psychiatry" in result):
             return "psychiatry"
         return "non-psychiatry"
+    
     except Exception as e:
         print(f"Error classifying question: {e}")
         return None
@@ -128,9 +131,9 @@ Daily limit is 1500 API calls.
 
 '''
 process_file(
-    dataset_path, 
-    batch_size=10,      # Save every 30 questions
+    DATASET_PATH, 
+    batch_size=10,       # Save every n questions
     max_rows=1200,       # Process rows per run
-    timeout_interval=1, # Take a break after every 1 question (so we don't ecxeed RPM limit)
-    timeout_seconds=8   # Break for 5 seconds is enough to avoid rate limits
+    timeout_interval=1,  # Take a break after every 1 question (so we don't exceed RPM limit)
+    timeout_seconds=5    # Break for 5 seconds is enough to avoid rate limits
 )

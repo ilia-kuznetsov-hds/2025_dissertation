@@ -1,13 +1,20 @@
-from llama_index.llms.google_genai import GoogleGenAI
-import os
-import pandas as pd
-import time 
 import json
+import os
+import time
+from pathlib import Path
+
+import pandas as pd
+from llama_index.llms.google_genai import GoogleGenAI
 
 google_api_key = os.getenv("GOOGLE_API_KEY")
 
+# Repository root
+REPO_ROOT = Path(__file__).resolve().parents[1]
+# Path to the verified psychiatry-question dataset
+FILE_PATH = str(REPO_ROOT / "data" / "MedQA_open_dataset_classified_psychiatry_evaluation.json")
+
 # Load the verified dataset
-with open("data\\2025-06 Step 0 Dataset preparation\\MedQA_open_dataset_classified_psychiatry_evaluation.json", 'r', encoding='utf-8') as file:
+with open(FILE_PATH, 'r', encoding='utf-8') as file:
     data = json.load(file)
 verified_df = pd.DataFrame(data)
 verified_df = verified_df[verified_df["psychiatry_classification"] == "include"].reset_index(drop=True)
@@ -15,10 +22,9 @@ columns_to_exclude = ['evaluation_status', 'psychiatry_classification']
 verified_df = verified_df.drop(columns=columns_to_exclude)
 
 
-def classify_question_category(question: str, model_name="gemini-2.5-pro"):
+def classify_question_category(question: str, model_name="gemini-3-flash-preview"):
     """
     Script for identifying the topic of psychiatric question
-
     """
     prompt = f"""
     Act as an experienced mental health specialist. Your task is to classify a provided psychiatric question.
@@ -125,7 +131,7 @@ def classify_question_category(question: str, model_name="gemini-2.5-pro"):
 
 def process_file_json(file_path, batch_size=10, max_rows=150, timeout_interval=25, timeout_seconds=30):
     """
-    
+    Process a JSON file containing questions and classify them into psychiatric categories.
     """
     FILE_PATH = file_path
     BATCH_SIZE = batch_size
@@ -148,13 +154,10 @@ def process_file_json(file_path, batch_size=10, max_rows=150, timeout_interval=2
         columns_to_exclude = ['evaluation_status', 'psychiatry_classification']
         df = df.drop(columns=columns_to_exclude)
 
-
         # Initialize the evaluation columns
         df['psychiatric_category'] = None
         df['category_reasoning'] = None
         df['category_confidence'] = None
-
-
 
     # Get rows that don't have evaluation yet
     rows_to_process = df[df['psychiatric_category'].isna()].index.tolist()
@@ -178,7 +181,7 @@ def process_file_json(file_path, batch_size=10, max_rows=150, timeout_interval=2
             continue
             
         # Evaluate the question using is_clinical_psychiatry_focused
-        evaluation_result = classify_question_category(question, model_name="gemini-2.5-pro")
+        evaluation_result = classify_question_category(question, model_name="gemini-3-flash-preview")
         
         # Extract results from the returned dictionary
         df.loc[idx, 'psychiatric_category'] = evaluation_result.get('category', 'error')
@@ -232,20 +235,8 @@ def process_file_json(file_path, batch_size=10, max_rows=150, timeout_interval=2
     return df
 
 
-    
-
-FILE_PATH = r"C:\\Users\\kuzne\\Documents\\Python_repo\\2025_01_dissertation\\2025_dissertation\\data\\2025-06 Step 0 Dataset preparation\\MedQA_open_dataset_classified_psychiatry_evaluation.json"
-
-
-process_file_json(FILE_PATH, batch_size=10, max_rows=732, timeout_interval=10, timeout_seconds=0)
-
-
-
-
-
-
-
-
-
-
-
+process_file_json(FILE_PATH, 
+                  batch_size=10, 
+                  max_rows=732, 
+                  timeout_interval=10, 
+                  timeout_seconds=0)
