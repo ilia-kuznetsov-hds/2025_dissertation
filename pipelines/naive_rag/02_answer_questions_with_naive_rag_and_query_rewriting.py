@@ -415,6 +415,7 @@ storage_context, index = initialize_query_index(DATABASE_PATH)
 process_questions_from_csv(QUESTIONS_FILE_PATH,
                             provider_name='gemini',
                             model_name="gemini-3-flash-preview",
+                            context_window_size=1048576,
                             batch_size=1,
                             max_rows=3,
                             timeout_seconds=1,

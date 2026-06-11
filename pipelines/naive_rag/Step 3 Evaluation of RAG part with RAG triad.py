@@ -1,29 +1,43 @@
-import os
-import pandas as pd
-from llama_index.llms.google_genai import GoogleGenAI
-from ragas.llms import LlamaIndexLLMWrapper
-from ragas import evaluate
-from datasets import Dataset
-import time
-from ragas.metrics import answer_relevancy, faithfulness
 import ast
+import os
+import time
+from pathlib import Path
+
+import pandas as pd
+from datasets import Dataset
+from llama_index.llms.google_genai import GoogleGenAI
+from ragas import evaluate
+from ragas.llms import LlamaIndexLLMWrapper
+from ragas.metrics import answer_relevancy, faithfulness
 
 
 google_api_key = os.getenv("GOOGLE_API_KEY")
 
-QUESTIONS_FILE = r"C:\\Users\\kuzne\\Documents\\Python_repo\\2025_01_dissertation\\2025_dissertation\\data\\2025-06 02.06.2025 dataset for evaluation\\psychiatry_train_dataset_groq_gemma2-9b-it_answered.csv"
+# Repository root, used to build paths that work on different machines.
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
-# Constants for context window sizes
+# Folder that contains the evaluation datasets and generated answer files.
+DATA_DIR = REPO_ROOT / "data"
+
+# CSV produced by the answer-generation step and used as input for RAGAS.
+QUESTIONS_FILE = str(
+    DATA_DIR / "test_dataset_gemini_gemini-3-flash-preview_answered.csv"
+)
+
+# Model context-window limits used to skip rows that are too large to evaluate.
 MODEL_CONTEXT_LIMITS = {
-    "gemini-2.0-flash": 1048576,  # Maximum input tokens: 1,048,576; Maximum output tokens: 8,192; https://ai.google.dev/gemini-api/docs/models#gemini-2.0-flash
-    "gemini-2.0-flash-lite": 1048576,  # Maximum input tokens: 1,048,576; Maximum output tokens: 8,192; https://ai.google.dev/gemini-api/docs/models#gemini-2.0-flash-lite
+    "gemini-3-flash-preview": 1048576,
 }
 
 
 def count_tokens(text):
     """
-    Count the approximate number of tokens in a text string.
-    Uses a simple heuristic: ~4 characters per token for common English text.
+    Estimate how many tokens a text will use before sending it to the evaluator.
+
+    This is a lightweight approximation, not an exact tokenizer. Many English
+    texts average around 4 characters per token, so dividing character length by
+    4 gives a quick estimate that is good enough for deciding whether an input
+    may exceed the model context window.
     
     Args:
         text (str): The text to count tokens for
@@ -33,29 +47,34 @@ def count_tokens(text):
     """
     if not text or not isinstance(text, str):
         return 0
-    # Count characters and divide by 4 (common approximation for English text)
-    # Add 1 to round up for partial tokens
+
     return len(text) // 4 + (1 if len(text) % 4 else 0)
 
 
-def setup_ragas_evaluator(model_name="gemini-2.0-flash"):
+def setup_ragas_evaluator(model_name="gemini-3-flash-preview"):
     """
-    Initialize the RAGAS evaluator with Google Gemini using LlamaIndex.
+    Create the LLM object that RAGAS will use to score answers.
+
+    Workflow:
+    1. Check that GOOGLE_API_KEY is available in the environment.
+    2. Create a LlamaIndex GoogleGenAI client for the selected Gemini model.
+    3. Wrap that client with RAGAS' LlamaIndex adapter, because RAGAS expects
+       its evaluator LLMs to follow the RAGAS wrapper interface.
+    4. Return the wrapped evaluator so it can be passed into evaluate(...).
     """
     if not os.getenv("GOOGLE_API_KEY"):
         raise ValueError("GOOGLE_API_KEY environment variable not set")
     
     model_name = model_name
-    # Create LlamaIndex GoogleGenAI instance
     gemini_llm = GoogleGenAI(
         model=model_name,
         api_key=google_api_key
     )
-    # Wrap with RAGAS LlamaIndexLLM adapter
+    
     return LlamaIndexLLMWrapper(gemini_llm)
 
 
-def calculate_rag_metric(file_path, model_name="gemini-2.0-flash", metric:str= "answer_relevancy", max_rows=20, batch_size=1, timeout_seconds=10):
+def calculate_rag_metric(file_path, model_name="gemini-3-flash-preview", metric:str= "answer_relevancy", max_rows=20, batch_size=1, timeout_seconds=10):
     '''
     Calculate RAGAS metrics for a given dataset file.
     Args:
@@ -215,41 +234,18 @@ def calculate_rag_metric(file_path, model_name="gemini-2.0-flash", metric:str= "
 
 
 
-FILE_LLAMA_3B = r"C:\\Users\\kuzne\Documents\\Python_repo\\2025_01_dissertation\\2025_dissertation\data\\2025-06 hybrid search\\psychiatry_test_dataset_together_meta-llama_Llama-3.2-3B-Instruct-Turbo_answered.csv"
+EVALUATION_FILE = QUESTIONS_FILE
 
-calculate_rag_metric(FILE_LLAMA_3B, 
-                     model_name="gemini-2.0-flash", 
+calculate_rag_metric(EVALUATION_FILE, 
+                     model_name="gemini-3-flash-preview", 
                      metric="answer_relevancy", 
-                     max_rows=450, batch_size=10, timeout_seconds=0)
+                     max_rows=450, 
+                     batch_size=10, 
+                     timeout_seconds=0)
 
-calculate_rag_metric(FILE_LLAMA_3B, 
-                     model_name="gemini-2.0-flash", 
+calculate_rag_metric(EVALUATION_FILE, 
+                     model_name="gemini-3-flash-preview", 
                      metric="faithfulness", 
-                     max_rows=450, batch_size=10, timeout_seconds=0)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+                     max_rows=450, 
+                     batch_size=10, 
+                     timeout_seconds=0)

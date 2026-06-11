@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+from pathlib import Path
 from llama_index.llms.google_genai import GoogleGenAI
 from ragas.llms import LlamaIndexLLMWrapper
 from ragas import evaluate
@@ -12,7 +13,15 @@ import time
 
 google_api_key = os.getenv("GOOGLE_API_KEY")
 
-QUESTIONS_FILE = r"C:\\Users\\kuzne\\Documents\\Python_repo\\2025_01_dissertation\\2025_dissertation\\data\\2025-06 02.06.2025 dataset for evaluation\\psychiatry_train_dataset_groq_llama3-8b-8192_answered.csv"
+# Repository root
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DATA_DIR = REPO_ROOT / "data"
+
+QUESTIONS_FILE = str(
+    DATA_DIR
+    / "2025-06 02.06.2025 dataset for evaluation"
+    / "psychiatry_train_dataset_groq_llama3-8b-8192_answered.csv"
+)
 
 # Constants for context window sizes
 MODEL_CONTEXT_LIMITS = {
@@ -403,9 +412,17 @@ def calculate_answer_correctness_rag(file_path, model_name="gemini-2.0-flash", m
     
 
 
-MISTRAL_MODEL_QUESTIONS = r"C:\\Users\\kuzne\\Documents\\Python_repo\\2025_01_dissertation\\2025_dissertation\\data\\2025-06 02.06.2025 dataset for evaluation\\psychiatry_train_dataset_groq_mistral-saba-24b_answered.csv"
+MISTRAL_MODEL_QUESTIONS = str(
+    DATA_DIR
+    / "2025-06 02.06.2025 dataset for evaluation"
+    / "psychiatry_train_dataset_groq_mistral-saba-24b_answered.csv"
+)
 
-LLAMA_MODEL_QUESTIONS = r"C:\\Users\\kuzne\\Documents\\Python_repo\\2025_01_dissertation\\2025_dissertation\\data\\2025-06 02.06.2025 dataset for evaluation\\psychiatry_train_dataset_together_meta-llama_Llama-3.3-70B-Instruct-Turbo-Free_answered.csv"
+LLAMA_MODEL_QUESTIONS = str(
+    DATA_DIR
+    / "2025-06 02.06.2025 dataset for evaluation"
+    / "psychiatry_train_dataset_together_meta-llama_Llama-3.3-70B-Instruct-Turbo-Free_answered.csv"
+)
 '''
 calculate_answer_correctness_vanilla(MISTRAL_MODEL_QUESTIONS, 
                                      model_name="gemini-2.0-flash", 
@@ -420,9 +437,4 @@ calculate_answer_correctness_vanilla(LLAMA_MODEL_QUESTIONS,
                                      max_rows=400, 
                                      batch_size=1, 
                                      timeout_seconds=0)  # Evaluate one question takes around 10 seconds, so we can use a small timeout
-
-
-
-
-
 
