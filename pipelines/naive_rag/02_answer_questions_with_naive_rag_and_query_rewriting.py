@@ -1,93 +1,87 @@
+import importlib.util
 import os
-import chromadb
-from llama_index.vector_stores.chroma import ChromaVectorStore
-from llama_index.core import StorageContext
-from llama_index.core import VectorStoreIndex
-from llama_index.llms.together import TogetherLLM
-from llama_index.llms.google_genai import GoogleGenAI
-from llama_index.llms.groq import Groq
-from llama_index.core.llms import ChatMessage
-import pandas as pd
 import time
+from pathlib import Path
+
+import pandas as pd
+from llama_index.core import VectorStoreIndex
+from llama_index.core.llms import ChatMessage
+from llama_index.llms.google_genai import GoogleGenAI
+from llama_index.llms.openai import OpenAI
 
 # Providers API Keys
 together_api_key = os.getenv("TOGETHER_API_KEY")
 google_api_key = os.getenv("GOOGLE_API_KEY")
-groq_api_key = os.getenv("GROQ_API_KEY")
 
+# Repository root
+REPO_ROOT = Path(__file__).resolve().parents[2]
 # Path to ChromaDB persistent client
-DATABASE_PATH = r"C:\\Users\\kuzne\\Documents\\Python_repo\\2025_01_dissertation\\2025_dissertation\\chromadb"
-QUESTIONS_FILE_PATH = r"C:\\Users\\kuzne\\Documents\\Python_repo\\2025_01_dissertation\\2025_dissertation\\data\\2025-06 02.06.2025 dataset for evaluation\\psychiatry_train_dataset.csv"
+DATABASE_PATH = str(REPO_ROOT / "chromadb")
+QUESTIONS_FILE_PATH = str(REPO_ROOT / "data" / "test_dataset.csv")
+NAIVE_RAG_INGEST_PATH = Path(__file__).with_name("01_naive_rag_ingest_pdfs_to_chroma.py")
 
-# Define available models for each provider
-provider_models = {
-    "together": ["deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free", #https://api.together.ai/models/deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free
-                 "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free"],  #https://api.together.ai/models/meta-llama/Llama-3.3-70B-Instruct-Turbo-Free 8192 context window size
 
-    "groq": ["llama-3.3-70b-versatile", # https://console.groq.com/docs/models
-             "llama-3-8b-8192",
-             "gemma2-9b-it", # 8192
-             "allam-2-7b", # 4096 context window size
-             "mistral-saba-24b"], # 32k
-    "gemini": ["gemini-2.0-flash",
-               "gemini-2.0-flash-lite"]
-}
+# Load helpers from the ingest script, whose filename starts with a number.
+def load_initialize_vector_store():
+    spec = importlib.util.spec_from_file_location(
+        "naive_rag_ingest_pdfs_to_chroma",
+        NAIVE_RAG_INGEST_PATH,
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.configure_embedding_model, module.initialize_vector_store
 
-'''
-Part 1. Connect to external vector store (with existing embeddings)
-https://docs.llamaindex.ai/en/stable/module_guides/indexing/vector_store_guide/
 
-This is the way to access previously calculated embeddings stored in the index
-https://docs.llamaindex.ai/en/stable/examples/vector_stores/ChromaIndexDemo/
-Basic example including saving to the disc
-'''
+configure_embedding_model, initialize_vector_store = load_initialize_vector_store()
 
-def initialize_vector_store(database_path):
-    """
-    Initialize the vector store that contains precalculated emdeddings from medical text corpus.
-    Embeddings were calculated during Step 1 (reference to Script 1 on RAG pipeline). 
 
-    Parameters:
-    - database_path: Path to the directory where the ChromaDB persistent client is stored.
+def initialize_query_index(database_path):
+    # Register the same embedding model used during ingestion. This matters because
+    # query embeddings must live in the same vector space as the stored document
+    # embeddings; otherwise similarity search results will be unreliable.
+    configure_embedding_model()
 
-    Collection name references: 
-        - "articles" - naive RAG, ingestion pipeline without preprocessing of PDF files.
+    # Reopen the persisted Chroma vector store created by the ingest step.
+    # The returned storage context gives LlamaIndex access to the underlying
+    # vector_store object without rebuilding embeddings from the source PDFs.
+    storage_context = initialize_vector_store(database_path)
 
-    Returns: 
-        - the vector store, storage context, index
-    """
-    client = chromadb.PersistentClient(path=database_path)
-    collection = client.get_or_create_collection(name="articles")
-    vector_store = ChromaVectorStore(chroma_collection=collection)
-    storage_context = StorageContext.from_defaults(vector_store=vector_store)
-    # If you have already computed embeddings and dumped them into an external vector store
-    # https://docs.llamaindex.ai/en/stable/module_guides/indexing/vector_store_guide/
-    index = VectorStoreIndex.from_vector_store(vector_store=vector_store)
-    return vector_store, storage_context, index 
+    # Wrap the existing vector store in a LlamaIndex query index. This index is
+    # only a query interface here; the vectors already exist in Chroma.
+    index = VectorStoreIndex.from_vector_store(
+        vector_store=storage_context.vector_store
+    )
+    return storage_context, index
+
 
 
 def generate_rag_response(user_query, 
-                          provider_name="together", 
-                          model_name="meta-llama/Llama-3.3-70B-Instruct-Turbo-Free", 
+                          provider_name="gemini", 
+                          model_name="gemini-3-flash-preview", 
                           top_k = 3,
                           context_window_size = 8192):
     """
-    Generate a response using RAG-enhanced LLM
+    Generate a response using a RAG-enhanced LLM.
 
-    Step 1: Query rewriting into effective search queries using LLM.
+    Workflow:
+    1. Rewrite the original question into a concise search query using Gemini.
+    This follows the query rewriting idea from:
     https://arxiv.org/abs/2305.14283
+    2. Retrieve the most relevant context chunks from the vector store.
+    3. Pass the retrieved context and original question to the answer-generation LLM.
 
     Parameters:
-    - user_query: The original user question to be answered
-    - provider_name: Name of the LLM provider (e.g., "together", "groq", "gemini")
-    - model_name: Name of the LLM model to use. Name of the provider and model should be
-        in the provider_models dictionary (defined at the beginning of the script with other constants)
-    - top_k: Number of top contexts to retrieve from the vector store (default is 3). If a moel has a small context window, top_k will be replaced with 1.
-    - context_window_size: Size of the context window for the LLM (default is 8192)
-    
+    - user_query: The original user question to be answered.
+    - provider_name: Name of the answer-generation LLM provider (e.g., "together", "gemini").
+    - model_name: Name of the answer-generation model to use.
+    - top_k: Number of top contexts to retrieve from the vector store. If the model has
+        a small context window, this is reduced to 1.
+    - context_window_size: Context window size of the answer-generation model.
+
     Returns:
-    - answer_text: The generated answer text from LLM provided with context
-    - context: The context retrieved from the vector store and used to generate the answer
+    - answer_text: The generated answer from the LLM.
+    - source_texts: The retrieved context chunks used to generate the answer.
+    - top_k: The final top_k value used after context-window adjustment.
     """
     global index
 
@@ -112,7 +106,7 @@ def generate_rag_response(user_query,
     Format your response as one search query without any explanations or numbering.
     """
     rewriter_llm = GoogleGenAI(
-            model='gemini-2.0-flash-lite',  # Alternative model - gemini-2.0-flash
+            model='gemini-3-flash-preview',
             api_key=google_api_key)
     rewrite_response = rewriter_llm.complete(rewrite_prompt)
     rewritten_queries = rewrite_response.text.strip().split('\n') # If we change prompt to return multiple queries, we can split them by new line
@@ -124,13 +118,13 @@ def generate_rag_response(user_query,
     print(f"Rewritten queries: {rewritten_queries}")
 
     # Step 2: Retrieve contexts using all queries
-    query_engine = index.as_query_engine(similarity_top_k=1)  # Reduced top_k since 1) we'll get multiple queries; 2) some models have small context window;
+    retriever = index.as_retriever(similarity_top_k=1)  # Reduced top_k since 1) we'll get multiple queries; 2) some models have small context window;
     source_texts = []
     used_source_ids = set()  # To track unique sources and avoid duplication
     
     for query in rewritten_queries:
-        response = query_engine.query(query)
-        for source_node in response.source_nodes:
+        source_nodes = retriever.retrieve(query)
+        for source_node in source_nodes:
             # Only add unique source texts using node ID as identifier
             node_id = source_node.node.node_id
             if node_id not in used_source_ids:
@@ -156,12 +150,10 @@ def generate_rag_response(user_query,
         """
     
     if provider_name.lower() == "together":
-        llm = TogetherLLM(
+        llm = OpenAI(
             model=model_name,
             api_base="https://api.together.xyz/v1",
             api_key=together_api_key,
-            is_chat_model=True,
-            is_function_calling_model=True,
             temperature=0.0
         )
 
@@ -169,12 +161,6 @@ def generate_rag_response(user_query,
         # Use non-streaming version to capture the full response
         full_response = llm.chat(messages)
         answer_text = full_response.message.content
-
-    elif provider_name.lower() == "groq":
-        llm = Groq(model=model_name, 
-                   api_key=groq_api_key)
-        full_response = llm.complete(prompt)
-        answer_text = str(full_response)
 
     else:
         llm = GoogleGenAI(
@@ -188,12 +174,22 @@ def generate_rag_response(user_query,
 
 
 def generate_vanilla_response(user_query, 
-                              provider_name="together", 
-                              model_name="meta-llama/Llama-3.3-70B-Instruct-Turbo-Free"):
+                              provider_name="gemini", 
+                              model_name="gemini-3-flash-preview"):
     """
-    Generate a response using LLM without RAG
+    Generate a response using only the LLM, without retrieving external context.
+
+    This is the baseline answer-generation function. It sends the original user
+    question directly to the selected model, so the response depends only on the
+    model's internal knowledge and the system-style instructions in the prompt.
+
+    Parameters:
+    - user_query: The original user question to be answered.
+    - provider_name: Name of the LLM provider (e.g., "together", "gemini").
+    - model_name: Name of the model to use for answer generation.
+
     Returns:
-    - answer_text: The generated answer text from LLM
+    - answer_text: The generated answer from the LLM.
     """
     
     user_query = user_query
@@ -207,12 +203,10 @@ def generate_vanilla_response(user_query,
         """
 
     if provider_name.lower() == "together":
-        llm = TogetherLLM(
+        llm = OpenAI(
             model=model_name,
             api_base="https://api.together.xyz/v1",
             api_key=together_api_key,
-            is_chat_model=True,
-            is_function_calling_model=True,
             temperature=0.0
         )
         messages = [ChatMessage(role="user", content=prompt)]
@@ -220,12 +214,6 @@ def generate_vanilla_response(user_query,
         # It takes a list of messages as input and returns the full response
         full_response = llm.chat(messages)
         answer_text = full_response.message.content
-
-    elif provider_name.lower() == "groq":
-        llm = Groq(model=model_name, 
-                   api_key=groq_api_key)
-        full_response = llm.complete(prompt)
-        answer_text = str(full_response)
 
     else:
         llm = GoogleGenAI(
@@ -239,8 +227,8 @@ def generate_vanilla_response(user_query,
 
 
 def process_questions_from_csv(file_path, 
-                               provider_name= "together",
-                               model_name= "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
+                               provider_name= "gemini",
+                               model_name= "gemini-3-flash-preview",
                                top_k = 3,
                                context_window_size = 8192,
                                batch_size: int = 1, 
@@ -251,7 +239,7 @@ def process_questions_from_csv(file_path,
     Process questions from a CSV file and generate answers using LLM.
     Parameters:
     - file_path: Path to the CSV file containing questions
-    - provider_name: Name of the LLM provider (e.g., "together", "groq", "gemini")
+    - provider_name: Name of the LLM provider (e.g., "together", "gemini")
     - model_name: Name of the LLM model to use. Name of the provider and model should be 
         in the provider_models dictionary (defined at the beginning of the script with other constants)
     - batch_size: Number of questions to process before saving progress in to the file
@@ -365,7 +353,7 @@ def process_questions_from_csv(file_path,
             rate_limit_indicators = [
                 "rate_limit_exceeded",
                 "rate limit reached", 
-                "429", # Groq API error code for rate limit
+                "429",
                 "quota exceeded",
                 "too many requests"
             ]
@@ -412,18 +400,22 @@ def process_questions_from_csv(file_path,
 
 
 '''
-Main function run
+Main script execution.
+
+This section runs only when using the file as a standalone pipeline script.
+It initializes the vector-store-backed query index, then processes questions
+from the test dataset and writes the generated vanilla and RAG answers to CSV.
 '''
 
+
 # Initialize the vector store
-vector_store, storage_context, index = initialize_vector_store(DATABASE_PATH)
+storage_context, index = initialize_query_index(DATABASE_PATH)
 
 # Test run for Gemini model
-
 process_questions_from_csv(QUESTIONS_FILE_PATH,
-                           provider_name='together',
-                            model_name="meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
-                            batch_size= 5,
-                            max_rows=200,
-                            )  # "deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free", # "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free", # "llama-3.3-70b-versatile", # "llama-3-8b-8192", # "gemma2-9b-it",
-                              # "deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free", 
+                            provider_name='gemini',
+                            model_name="gemini-3-flash-preview",
+                            batch_size=1,
+                            max_rows=3,
+                            timeout_seconds=1,
+                            )
