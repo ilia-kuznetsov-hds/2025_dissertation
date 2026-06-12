@@ -1,5 +1,7 @@
 # Evaluation Pipeline
 
+<img src="../../images/evaluation.png" alt="Evaluation pipeline" width="700">
+
 This folder contains scripts for evaluating generated answers with RAGAS metrics.
 
 | Metric | Script | High-level description |
@@ -8,4 +10,4 @@ This folder contains scripts for evaluating generated answers with RAGAS metrics
 | `faithfulness` | `ragas_answer_relevancy_faithfulness.py` | Evaluates whether the generated RAG answer is supported by the retrieved context. The script runs this metric on RAG answers and stores per-run scores plus a mean score. |
 | `semantic_similarity` | `ragas_semantic_similarity.py` | Evaluates how semantically similar a generated answer is to the reference reasoning. The script supports both vanilla answers and RAG answers, using Gemini embeddings through RAGAS. |
 
-The evaluation scripts are resumable. If an output file already exists, the script loads it and continues only on rows that still need metric scores.
+

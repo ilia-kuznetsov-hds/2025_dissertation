@@ -1,5 +1,7 @@
 # Naive RAG Pipeline
 
+<img src="../../images/naive_rag.png" alt="Naive RAG pipeline" width="700">
+
 This folder contains the first retrieval-augmented generation (RAG) pipeline for
 the dissertation project. The pipeline follows a simple RAG structure: ingest
 source documents, store their embeddings in a vector database, retrieve relevant

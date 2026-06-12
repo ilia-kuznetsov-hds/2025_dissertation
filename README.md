@@ -1,5 +1,7 @@
 # RAG for Psychiatric Medical Question Answering
 
+<img src="images/repo_title.png" alt="Title" width="700">
+
 This repository contains the full research pipeline for a 2025 dissertation evaluating Retrieval-Augmented Generation (RAG) on a psychiatry-focused medical question-answering task. The project curates a dataset of 737 psychiatry questions from MedQA-Open, builds two RAG pipelines backed by clinical reference documents, and compares vanilla versus RAG-augmented responses across four large language models using automated metrics and rubric-based scoring.
 
 ---
@@ -16,7 +18,6 @@ This repository contains the full research pipeline for a 2025 dissertation eval
 | [`analysis/`](analysis/) | Final evaluation results: compares all four LLMs (vanilla vs. RAG) using RAGAS metrics and rubric scoring, with confidence intervals, t-tests, and per-diagnostic-category breakdowns. |
 | [`experiments/`](experiments/) | Exploratory notebooks for cluster analysis and Llama 4 Scout result inspection. |
 | [`shiny/`](shiny/) | R Shiny web dashboard for interactive comparison of model answers by psychiatric category. |
-| [`chromadb/`](chromadb/) | Persistent ChromaDB vector store created during naive RAG ingestion (auto-generated). |
 
 ---
 
