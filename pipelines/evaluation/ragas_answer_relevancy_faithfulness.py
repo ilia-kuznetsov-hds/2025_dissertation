@@ -77,6 +77,18 @@ def setup_ragas_evaluator(model_name="gemini-3-flash-preview"):
 def calculate_rag_metric(file_path, model_name="gemini-3-flash-preview", metric:str= "answer_relevancy", max_rows=20, batch_size=1, timeout_seconds=10):
     '''
     Calculate RAGAS metrics for a given dataset file.
+
+    This script evaluates the quality of generated RAG answers using RAGAS metrics and a Gemini evaluator model.
+
+    At a high level, the script:
+
+    1. Loads the answered test dataset produced by the previous RAG generation step.
+    2. Checks each row that contains a generated RAG answer and has not already been evaluated.
+    3. Uses the question, generated answer, and retrieved context as inputs for RAGAS evaluation.
+    4. Evaluates each answer multiple times for each selected metric.
+    5. Saves metric scores, mean scores, evaluation notes, and evaluator model information back to CSV files.
+    6. Supports resumable evaluation by continuing from existing output files instead of starting over.
+
     Args:
         file_path (str): Path to the CSV file containing the dataset.
         model_name (str): Name of the model to use for evaluation.
@@ -102,6 +114,7 @@ def calculate_rag_metric(file_path, model_name="gemini-3-flash-preview", metric:
         raise ValueError(f"Unsupported metric: {metric}. Supported metrics: {list(metric_mapping.keys())}")
     
     selected_metric = metric_mapping[metric]
+    evaluator_llm = setup_ragas_evaluator(model_name=model_name)
 
     # Check if the output file already exists 
     if os.path.exists(OUTPUT_PATH):
@@ -190,7 +203,7 @@ def calculate_rag_metric(file_path, model_name="gemini-3-flash-preview", metric:
             for run in range(1, 4):
                 score = evaluate(dataset,
                                metrics=[selected_metric], 
-                               llm=setup_ragas_evaluator(model_name=model_name))
+                               llm=evaluator_llm)
                 
                 # Extract the score value - key name matches metric name
                 metric_score = score[metric][0]  # Get first (only) element
@@ -233,19 +246,30 @@ def calculate_rag_metric(file_path, model_name="gemini-3-flash-preview", metric:
         print(f"All questions have been evaluated! Total: {len(df)} questions.")
 
 
+def calculate_rag_metrics(file_path, metrics, model_name="gemini-3-flash-preview", max_rows=20, batch_size=1, timeout_seconds=10):
+    '''
+    Calculate multiple RAGAS metrics while preserving the existing per-metric
+    output files and resume behavior.
+    '''
+    for metric in metrics:
+        calculate_rag_metric(
+            file_path,
+            model_name=model_name,
+            metric=metric,
+            max_rows=max_rows,
+            batch_size=batch_size,
+            timeout_seconds=timeout_seconds
+        )
+
+
 
 EVALUATION_FILE = QUESTIONS_FILE
 
-calculate_rag_metric(EVALUATION_FILE, 
-                     model_name="gemini-3-flash-preview", 
-                     metric="answer_relevancy", 
-                     max_rows=450, 
-                     batch_size=10, 
-                     timeout_seconds=0)
-
-calculate_rag_metric(EVALUATION_FILE, 
-                     model_name="gemini-3-flash-preview", 
-                     metric="faithfulness", 
-                     max_rows=450, 
-                     batch_size=10, 
-                     timeout_seconds=0)
+calculate_rag_metrics(
+    EVALUATION_FILE,
+    metrics=["answer_relevancy", "faithfulness"],
+    model_name="gemini-3-flash-preview",
+    max_rows=450,
+    batch_size=10,
+    timeout_seconds=0
+)

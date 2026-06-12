@@ -4,3 +4,4 @@
 .venv/
 data/knowledge_base/
 chromadb/
+shiny/rsconnect/

@@ -1,7 +1,4 @@
 library(shiny)
-library(shinythemes)
-
-rsconnect::writeManifest()
 
 # Path to your CSV file
 csv_path <- "random_questions_by_category.csv"  # Change as needed
